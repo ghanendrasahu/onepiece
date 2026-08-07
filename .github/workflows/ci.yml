@@ -85,6 +85,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     strategy:
       matrix:
         service: [identity, catalog, streaming, ai_guide, gateway]
