@@ -26,6 +26,7 @@ class GatewaySettings(BaseSettings):
 
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
     rate_limit_rpm: int = Field(default=600, validation_alias="GATEWAY_RATE_LIMIT_RPM")
+    auth_rate_limit_rpm: int = Field(default=30, validation_alias="GATEWAY_AUTH_RATE_LIMIT_RPM")
 
     # Optional direct TLS termination at the gateway (dev). In production TLS is
     # terminated at the load balancer/ingress; set these to run self-signed locally.

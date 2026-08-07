@@ -59,3 +59,36 @@ def test_unauthorized_me(client):
 
 def test_healthz(client):
     assert client.get("/healthz").json() == {"status": "ok"}
+
+
+def test_refresh_rotates_and_revocation(client):
+    r = client.post(
+        "/v1/auth/register",
+        json={"email": "r@z.com", "password": "supersecret1", "display_name": "R"},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    old_refresh = body["refresh_token"]
+
+    refreshed = client.post("/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert refreshed.status_code == 200
+    new_body = refreshed.json()
+    assert new_body["access_token"]
+    # Old refresh token is rotated and must no longer work.
+    replay = client.post("/v1/auth/refresh", json={"refresh_token": old_refresh})
+    assert replay.status_code == 401
+
+    # Logout revokes the session; the rotated refresh is rejected afterwards.
+    logout = client.post(
+        "/v1/auth/logout", headers={"Authorization": f"Bearer {new_body['access_token']}"}
+    )
+    assert logout.status_code == 200
+    after_logout = client.post(
+        "/v1/auth/refresh", json={"refresh_token": new_body["refresh_token"]}
+    )
+    assert after_logout.status_code == 401
+
+
+def test_refresh_rejects_garbage_token(client):
+    r = client.post("/v1/auth/refresh", json={"refresh_token": "not-a-valid-token"})
+    assert r.status_code == 401

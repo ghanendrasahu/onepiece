@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     jwt_secret: str | None = Field(default=None, validation_alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     jwt_access_ttl_minutes: int = Field(default=15, validation_alias="JWT_ACCESS_TTL_MINUTES")
+    jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
+    jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
+
+    # --- observability ---
+    sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
+    metrics_enabled: bool = Field(default=True, validation_alias="METRICS_ENABLED")
 
     # --- external AI (used by ai-guide) ---
     ai_provider: str = Field(default="mock", validation_alias="AI_PROVIDER")

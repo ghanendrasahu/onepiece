@@ -18,8 +18,13 @@ class LoginIn(BaseModel):
 
 class TokenOut(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user_id: str
+
+
+class RefreshIn(BaseModel):
+    refresh_token: str = Field(min_length=16)
 
 
 class UserOut(OrmModel):

@@ -1,37 +1,51 @@
-"""Auth routes: register, login, session management."""
+"""Auth routes: register, login, refresh, session management, logout."""
 
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ulid import new as new_ulid
-from worldview.auth import create_access_token, hash_password, verify_password
+from worldview.auth import (
+    create_access_token,
+    generate_refresh_token,
+    get_current_user,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
 from worldview.db import get_db
 
 from ..models import Session as SessionRow
 from ..models import User
-from ..schemas import LoginIn, RegisterIn, TokenOut
+from ..schemas import LoginIn, RefreshIn, RegisterIn, TokenOut
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 def _build_token(user: User, db: Session) -> TokenOut:
+    session_id = str(new_ulid())
+    refresh_raw = generate_refresh_token()
     session_row = SessionRow(
-        id=str(new_ulid()),
+        id=session_id,
         user_id=user.id,
-        expires_at=_session_expiry(),
+        expires_at=_refresh_expiry(),
+        refresh_token_hash=hash_refresh_token(refresh_raw),
     )
     db.add(session_row)
-    token = create_access_token(user.id, scopes=["user"])
+    access = create_access_token(user.id, scopes=["user"], session_id=session_id)
     db.flush()
-    return TokenOut(access_token=token, user_id=user.id)
+    return TokenOut(access_token=access, refresh_token=refresh_raw, user_id=user.id)
 
 
-def _session_expiry():
-    from datetime import datetime, timedelta
+def _session_expiry(ttl_days: int = 30) -> datetime:
+    return datetime.now(UTC) + timedelta(days=ttl_days)
 
-    return datetime.now(UTC) + timedelta(days=30)
+
+def _refresh_expiry() -> datetime:
+    from worldview.config import get_settings
+
+    return _session_expiry(get_settings().jwt_refresh_ttl_days)
 
 
 @router.post("/register", response_model=TokenOut, status_code=status.HTTP_201_CREATED)
@@ -61,6 +75,40 @@ def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
     return _build_token(user, db)
 
 
+@router.post("/refresh", response_model=TokenOut)
+def refresh(payload: RefreshIn, db: Session = Depends(get_db)) -> TokenOut:
+    digest = hash_refresh_token(payload.refresh_token)
+    row = db.execute(
+        select(SessionRow).where(SessionRow.refresh_token_hash == digest)
+    ).scalar_one_or_none()
+    exp = row.expires_at if row is not None else None
+    if exp is not None and exp.tzinfo is None:
+        exp = exp.replace(tzinfo=UTC)
+    if row is None or row.revoked_at is not None or exp < datetime.now(UTC):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
+        )
+    user = db.get(User, row.user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+        )
+
+    new_raw = generate_refresh_token()
+    row.refresh_token_hash = hash_refresh_token(new_raw)
+    row.expires_at = _refresh_expiry()
+    access = create_access_token(user.id, scopes=["user"], session_id=row.id)
+    db.flush()
+    return TokenOut(access_token=access, refresh_token=new_raw, user_id=user.id)
+
+
 @router.post("/logout")
-def logout(db: Session = Depends(get_db)) -> dict[str, str]:
+def logout(
+    current: dict = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict[str, str]:
+    session_id = current.get("sid")
+    if session_id:
+        row = db.get(SessionRow, session_id)
+        if row is not None:
+            row.revoked_at = datetime.now(UTC)
     return {"status": "ok"}

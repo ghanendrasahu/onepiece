@@ -33,6 +33,7 @@ def settings() -> GatewaySettings:
         streaming_upstream="http://upstream",
         ai_guide_upstream="http://upstream",
         rate_limit_rpm=5,
+        auth_rate_limit_rpm=5,
     )
 
 
@@ -92,8 +93,23 @@ def test_healthz_not_rate_limited(settings):
     with TestClient(app) as c:
         assert c.get("/healthz").status_code == 200
         assert c.get("/healthz").status_code == 200
+        assert c.get("/api/catalog/v1/echo").status_code == 200
+        assert c.get("/api/catalog/v1/echo").status_code == 429
+
+
+def test_auth_rate_limit_stricter(settings):
+    app = create_app(
+        settings=settings,
+        upstream_app=upstream,
+        rate_limiter=MemoryRateLimiter(100),
+    )
+    with TestClient(app) as c:
+        app.state.auth_rate_limiter = MemoryRateLimiter(2)
+        assert c.get("/api/identity/v1/echo").status_code == 200
         assert c.get("/api/identity/v1/echo").status_code == 200
         assert c.get("/api/identity/v1/echo").status_code == 429
+        # Non-identity traffic keeps the looser global limit.
+        assert c.get("/api/catalog/v1/echo").status_code == 200
 
 
 def test_security_headers_present(client):

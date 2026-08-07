@@ -41,6 +41,7 @@ def create_app(
         transport = httpx.ASGITransport(app=upstream_app) if upstream_app else None
         app.state.client = httpx.AsyncClient(timeout=httpx.Timeout(15.0), transport=transport)
         app.state.rate_limiter = rate_limiter or build_rate_limiter(s.redis_url, s.rate_limit_rpm)
+        app.state.auth_rate_limiter = build_rate_limiter(s.redis_url, s.auth_rate_limit_rpm)
         async with app.state.client:
             log.info("gateway listening", extra={"region": s.region_key})
             yield
