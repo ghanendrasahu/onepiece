@@ -12,6 +12,7 @@ from worldview.auth import (
     get_current_user,
     hash_password,
     hash_refresh_token,
+    needs_rehash,
     verify_password,
 )
 from worldview.db import get_db
@@ -72,6 +73,8 @@ def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
     ).scalar_one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if needs_rehash(user.password_hash):
+        user.password_hash = hash_password(payload.password)
     return _build_token(user, db)
 
 

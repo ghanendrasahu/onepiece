@@ -27,13 +27,28 @@ def _connect_args(database_url: str) -> dict:
 
 
 def get_engine(database_url: str | None = None, settings: Settings | None = None) -> Engine:
-    """Return a lazily-created, cached SQLAlchemy engine."""
+    """Return a lazily-created, cached SQLAlchemy engine.
+
+    PostgreSQL engines use a bounded connection pool (size/overflow/timeout) so
+    a database outage backpressures instead of exhausting file descriptors.
+    SQLite engines use a single thread-safe connection (the dev default).
+    """
     settings = settings or get_settings()
     url = database_url or settings.database_url
     if url not in _ENGINES:
         if url.startswith("sqlite"):
             _ensure_sqlite_dir(url)
-        _ENGINES[url] = create_engine(url, connect_args=_connect_args(url), pool_pre_ping=True)
+            _ENGINES[url] = create_engine(url, connect_args=_connect_args(url), pool_pre_ping=True)
+        else:
+            _ENGINES[url] = create_engine(
+                url,
+                connect_args=_connect_args(url),
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                pool_timeout=settings.db_pool_timeout_seconds,
+                pool_recycle=settings.db_pool_recycle_seconds,
+                pool_pre_ping=settings.db_pool_pre_ping,
+            )
     return _ENGINES[url]
 
 

@@ -1,4 +1,4 @@
-"""JWT access tokens and password hashing (dependency-free crypto primitives)."""
+"""JWT access tokens and password hashing (argon2id with legacy PBKDF2 verify)."""
 
 import hashlib
 import hmac
@@ -17,28 +17,58 @@ _PBKDF2_ITERATIONS = 600_000
 
 
 def hash_password(password: str) -> str:
-    """Hash a password with PBKDF2-HMAC-SHA256 (600k iterations).
+    """Hash a password with argon2id (the current OWASP recommendation).
 
-    Note: production should migrate to argon2id; this is the stdlib default.
-    Format: ``pbkdf2$<iterations>$<salt_hex>$<hash_hex>``.
+    Format: the full ``$argon2id$v=19$m=65536,t=3,p=4$...`` PHC string emitted
+    by argon2-cffi. New registrations use argon2id; legacy PBKDF2 hashes remain
+    verifiable and are opportunistically upgraded on the next successful login.
     """
-    salt = secrets.token_bytes(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, _PBKDF2_ITERATIONS)
-    return f"pbkdf2${_PBKDF2_ITERATIONS}${salt.hex()}${digest.hex()}"
+    from argon2 import PasswordHasher
+
+    return PasswordHasher().hash(password)
 
 
 def verify_password(password: str, stored: str) -> bool:
-    """Constant-time comparison of a password against a stored hash."""
-    try:
-        scheme, iterations, salt_hex, hash_hex = stored.split("$")
-        if scheme != "pbkdf2":
+    """Verify a password, accepting both argon2id and legacy PBKDF2 hashes."""
+    if stored.startswith("pbkdf2$"):
+        return _verify_pbkdf2(password, stored)
+    if stored.startswith("$argon2"):
+        from argon2 import PasswordHasher
+        from argon2.exceptions import VerifyMismatchError
+
+        try:
+            return PasswordHasher().verify(stored, password)
+        except (VerifyMismatchError, ValueError, TypeError):
             return False
+    return False
+
+
+def _verify_pbkdf2(password: str, stored: str) -> bool:
+    """Constant-time comparison against a legacy PBKDF2-HMAC-SHA256 hash."""
+    try:
+        _scheme, iterations, salt_hex, hash_hex = stored.split("$")
         digest = hashlib.pbkdf2_hmac(
             "sha256", password.encode(), bytes.fromhex(salt_hex), int(iterations)
         )
         return hmac.compare_digest(digest.hex(), hash_hex)
     except (ValueError, AttributeError):
         return False
+
+
+def needs_rehash(stored: str) -> bool:
+    """Return True when a stored hash should be upgraded to argon2id.
+
+    PBKDF2 hashes return True; argon2id hashes return True only if they use
+    weaker parameters than the current production profile (so we can re-hash on
+    the next login without forcing every user to reset their password).
+    """
+    if stored.startswith("pbkdf2$"):
+        return True
+    if stored.startswith("$argon2"):
+        from argon2 import PasswordHasher
+
+        return "id$" not in stored or PasswordHasher().check_needs_rehash(stored)
+    return True
 
 
 def create_access_token(
