@@ -59,14 +59,33 @@ def get_session_factory(database_url: str | None = None, settings: Settings | No
 
 
 def init_db(database_url: str | None = None, settings: Settings | None = None) -> None:
-    """Create all tables for the given engine (dev convenience; prod uses migrations)."""
+    """Initialise the schema for the given engine.
+
+    Dev convenience: ``create_all`` on an empty database.
+    Production safety: do NOT create tables implicitly - require the schema to
+    exist (created by Alembic migrations, ``make migrate``) and fail loudly if
+    it is missing so deployments can never drift.
+    """
+    settings = settings or get_settings()
+    engine = get_engine(database_url, settings)
+    if settings.env == "prod":
+        _assert_schema_present(engine, settings.service_name)
+    else:
+        Base.metadata.create_all(engine)
+
+
+def _assert_schema_present(engine, service_name: str) -> None:
     from sqlalchemy import inspect
 
-    engine = get_engine(database_url, settings)
-    # Import models so metadata is populated before create_all.
-    Base.metadata.create_all(engine)
     inspector = inspect(engine)
-    _ = inspector
+    missing = [
+        table.name for table in Base.metadata.sorted_tables if not inspector.has_table(table.name)
+    ]
+    if missing:
+        raise RuntimeError(
+            f"{service_name}: schema missing tables {missing} - "
+            "run `make migrate` (Alembic) before booting in prod"
+        )
 
 
 def get_db() -> Generator[Session, None, None]:

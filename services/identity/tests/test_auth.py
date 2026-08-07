@@ -7,7 +7,9 @@ from worldview_identity import main
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
+    from worldview.testing import test_database_url, truncate_all
+
+    monkeypatch.setenv("DATABASE_URL", test_database_url(tmp_path))
     monkeypatch.setenv("JWT_SECRET", "test-secret")
     from worldview.config import reset_settings
 
@@ -16,6 +18,7 @@ def client(tmp_path, monkeypatch):
 
     reload(main)
     with TestClient(main.app) as c:
+        truncate_all(test_database_url(tmp_path))
         yield c
 
 

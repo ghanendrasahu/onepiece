@@ -8,7 +8,10 @@ from ulid import new as new_ulid
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'stream.db'}")
+    from worldview.testing import test_database_url, truncate_all
+
+    url = test_database_url(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", url)
     monkeypatch.setenv("JWT_SECRET", "test-secret")
     from worldview.config import reset_settings
 
@@ -17,6 +20,7 @@ def client(tmp_path, monkeypatch):
 
     reload(main)
     with TestClient(main.app) as c:
+        truncate_all(url)
         yield c
 
 
@@ -53,8 +57,11 @@ def test_invalid_transition_conflicts(client):
     assert r.status_code == 409
 
 
-def test_creator_authorization(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'stream2.db'}")
+def _open_client(tmp_path, monkeypatch):
+    from worldview.testing import test_database_url, truncate_all
+
+    url = test_database_url(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", url)
     monkeypatch.setenv("JWT_SECRET", "test-secret")
     from worldview.config import reset_settings
 
@@ -62,7 +69,13 @@ def test_creator_authorization(tmp_path, monkeypatch):
     from importlib import reload
 
     reload(main)
-    with TestClient(main.app) as c:
+    client = TestClient(main.app)
+    truncate_all(url)
+    return client
+
+
+def test_creator_authorization(tmp_path, monkeypatch):
+    with _open_client(tmp_path, monkeypatch) as c:
         headers_a = _auth_headers()
         stream_id = c.post("/v1/streams", json={}, headers=headers_a).json()["id"]
         headers_b = _auth_headers()
@@ -71,13 +84,5 @@ def test_creator_authorization(tmp_path, monkeypatch):
 
 
 def test_get_missing_stream(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'stream3.db'}")
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
-    from worldview.config import reset_settings
-
-    reset_settings()
-    from importlib import reload
-
-    reload(main)
-    with TestClient(main.app) as c:
+    with _open_client(tmp_path, monkeypatch) as c:
         assert c.get("/v1/streams/nonexistent").status_code == 404

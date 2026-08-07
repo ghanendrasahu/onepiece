@@ -47,6 +47,7 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)) -> TokenOut:
         locale=payload.locale,
     )
     db.add(user)
+    db.flush()  # persist the user first so its session INSERT satisfies the FK
     return _build_token(user, db)
 
 

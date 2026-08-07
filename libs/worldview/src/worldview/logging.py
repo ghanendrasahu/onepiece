@@ -5,6 +5,8 @@ import logging
 import sys
 from typing import Any
 
+from worldview.request_id import RequestIDFilter
+
 
 class JsonFormatter(logging.Formatter):
     """Emit structured JSON logs with PII-safe fields."""
@@ -31,6 +33,7 @@ def setup_logging(service_name: str, level: str = "INFO") -> logging.Logger:
         root.handlers.clear()
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(JsonFormatter())
+    handler.addFilter(RequestIDFilter())
     root.addHandler(handler)
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
     return logging.getLogger(service_name)

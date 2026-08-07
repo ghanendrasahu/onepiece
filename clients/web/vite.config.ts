@@ -1,26 +1,42 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
-const services: Record<string, number> = {
-  identity: 8001,
-  catalog: 8002,
-  streaming: 8003,
-  "ai-guide": 8004,
-};
-
-const proxy = Object.fromEntries(
-  Object.entries(services).map(([name, port]) => [
-    `/api/${name}`,
-    {
-      target: `http://localhost:${port}`,
-      changeOrigin: true,
-      rewrite: (path: string) => path.replace(/^\/api\/[^/]+/, ""),
-    },
-  ]),
-);
-
+// Dev: proxy all API traffic to the single gateway entry point on :8000.
+// The gateway routes /api/<service>/<path> to the right upstream.
 export default defineConfig({
   server: {
     port: 5173,
-    proxy,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
+  plugins: [cspPlugin()],
 });
+
+// Inject a Content-Security-Policy only for production builds (Vite dev
+// relies on inline scripts/eval that a strict CSP would break).
+function cspPlugin(): Plugin {
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob: https:",
+    "connect-src 'self' https: ws:",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+  return {
+    name: "inject-csp",
+    apply: "build",
+    transformIndexHtml(html: string) {
+      const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}" />`;
+      return html.replace("</head>", `${meta}</head>`);
+    },
+  };
+}
