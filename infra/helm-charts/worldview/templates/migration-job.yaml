@@ -1,0 +1,27 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "worldview.fullname" . }}-migrate
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "worldview.fullname" . }}
+      containers:
+        - name: migrate
+          image: {{ include "worldview.image" (dict "root" $ "service" "gateway") }}
+          command: ["sh", "-c", "uv run alembic upgrade head"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "worldview.fullname" . }}-common
+            - secretRef:
+                name: {{ include "worldview.fullname" . }}-credentials
+{{- end }}

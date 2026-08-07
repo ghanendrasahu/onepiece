@@ -1,0 +1,10 @@
+# Region overlay: AP Southeast (secondary). Same chart, region-specific values.
+region: ap-southeast-1
+image:
+  tag: latest
+services:
+  gateway:
+    replicas: 4
+    maxReplicas: 12
+ingress:
+  host: gateway.ap-southeast-1.worldview.vr.example

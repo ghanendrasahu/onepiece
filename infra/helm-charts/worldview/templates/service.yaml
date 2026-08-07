@@ -1,0 +1,23 @@
+{{- range $name, $cfg := .Values.services }}
+{{- if $cfg.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "worldview.serviceName" (dict "Release" $.Release "name" $name) }}
+  labels:
+    app.kubernetes.io/name: {{ $.Chart.Name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - name: http
+      port: {{ $.Values.serviceDefaults.port }}
+      targetPort: {{ $.Values.serviceDefaults.port }}
+      protocol: TCP
+{{- end }}
+{{- end }}
