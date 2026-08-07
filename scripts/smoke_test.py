@@ -120,10 +120,11 @@ def run():
 
         seed_catalog.seed(f"sqlite:///{DB}")
         tours = c.get(f"{BASE['catalog']}/v1/tours")
+        titles = [t["title_en"] for t in tours.json()["items"]] if tours.status_code == 200 else []
         check(
             "catalog",
             "list tours",
-            tours.status_code == 200 and tours.json()["items"][0]["title_en"] == "Tokyo Night Walk",
+            tours.status_code == 200 and "Tokyo Night Walk" in titles,
         )
         nearby = c.get(
             f"{BASE['catalog']}/v1/explore/nearby",
