@@ -1,0 +1,42 @@
+# Argo CD Application (App-of-Apps entry) for the WorldView control plane.
+# Applies the same chart to a region with a per-region overlay; promote a region
+# by bumping `targetRevision` / overlay and letting Argo CD sync.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: worldview-us-east-1
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ghanendrasahu/worldview-monorepo
+    targetRevision: main
+    path: infra/helm-charts/worldview
+    helm:
+      valueFiles:
+        - values/region-us-east-1.yaml
+      # jwtSecret is read from a pre-provisioned Secret (argocd/SealedSecret),
+      # never from Git. A value with name `jwtSecret` overrides:
+      # parameters:
+      #   - name: jwtSecret
+      #     valueFrom:
+      #       secretKeyRef:
+      #         name: worldview-secrets
+      #         key: jwtSecret
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: prod
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

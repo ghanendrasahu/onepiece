@@ -34,8 +34,17 @@ on top of `values.yaml`, so promotion = promoting one manifest set.
 | `database.url`   | DSN for the service Postgres (Aurora)          |
 | `redis.url`      | DSN for shared Redis (rate limiting, idempotency) |
 | `services.*`     | per-service replicas / env / HPA tuning        |
+| `services.<name>.rollout.enabled` | deploy that service as an Argo Rollout (canary) instead of a Deployment |
+| `prometheusAddress` | Prometheus URL used by the canary AnalysisTemplate |
 | `ingress.*`      | gateway ingress host / TLS / annotations       |
 | `migration.enabled` | runs `alembic upgrade head` as a Helm hook  |
+
+## Canary (Argo Rollouts)
+
+The gateway is deployed as an Argo `Rollout` (5% -> 25% -> 100% weights, 60s
+pauses) gated by an `AnalysisTemplate` that fails if the 5xx error rate exceeds
+1% (Prometheus). Argo CD syncs the Application in `infra/argocd/application.yaml`;
+a failed analysis auto-aborts the rollout.
 
 ## Render for inspection
 

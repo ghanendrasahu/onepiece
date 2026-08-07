@@ -25,6 +25,9 @@ redis:
 # Optional provider/model-gateway endpoint (used by ai-guide). Leave empty for mock.
 modelGatewayUrl: ""
 
+# Prometheus address used by Argo Rollouts analysis (canary SLO checks).
+prometheusAddress: http://prometheus:9090
+
 serviceDefaults:
   port: 8000
   minReplicas: 1
@@ -53,6 +56,9 @@ services:
       AI_PROVIDER: mock
   gateway:
     enabled: true
+    # Canary deploy via Argo Rollouts (5 -> 25 -> 100%) with SLO analysis.
+    rollout:
+      enabled: true
     env:
       GATEWAY_AUTH_RATE_LIMIT_RPM: "30"
       GATEWAY_RATE_LIMIT_RPM: "600"
