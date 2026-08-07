@@ -1,0 +1,48 @@
+[project]
+name = "worldview-monorepo"
+version = "0.1.0"
+description = "WorldView VR - immersive virtual travel platform (Python-first implementation)"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["libs/*", "services/*"]
+
+[tool.uv.sources]
+worldview = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S", "ASYNC"]
+ignore = [
+    "B008",  # Depends() in FastAPI argument defaults is idiomatic
+    "S105",  # schema string literals like token_type="bearer"
+    "S106",  # pydantic Field defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is the point of tests
+"**/tests/**" = ["S101"]
+"services/ai_guide/worldview_ai_guide/knowledge.py" = ["E501"]  # natural-language seed prose
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

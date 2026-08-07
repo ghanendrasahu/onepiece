@@ -1,0 +1,25 @@
+# WorldView VR service runtime image (shared across all Python services).
+# Build with: docker build -t worldview:<service> --build-arg SERVICE=<service> .
+# The repo root must be the build context (monorepo workspace).
+
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+
+ARG SERVICE
+ENV SERVICE=${SERVICE} \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# Copy the full workspace (uv resolves the local `worldview` lib dependency).
+COPY pyproject.toml uv.lock ./
+COPY libs ./libs
+COPY services ./services
+
+RUN uv sync --locked --all-packages --no-dev
+
+EXPOSE 8000
+
+# Listen on PORT (default 8000) so compose can address per-service ports.
+CMD ["sh", "-c", "uv run --directory services/${SERVICE} uvicorn worldview_${SERVICE}.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

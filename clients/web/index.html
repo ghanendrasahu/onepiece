@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WorldView VR - 360° Player</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0a0f1e; color: #f4f6fb; font-family: Inter, sans-serif; }
+      #app { height: 100%; }
+      #hud { position: fixed; top: 16px; left: 16px; z-index: 10; background: rgba(10,15,30,.7); padding: 8px 14px; border-radius: 8px; font-size: 13px; }
+      #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 10; font-size: 13px; opacity: .8; }
+      .live { color: #ff3b30; }
+    </style>
+  </head>
+  <body>
+    <div id="hud"><span class="live">●</span> WorldView VR 360° Player</div>
+    <div id="hint">drag to look around · ?src=&lt;equirectangular-video-url&gt;</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

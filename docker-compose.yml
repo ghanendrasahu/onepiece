@@ -1,0 +1,82 @@
+services:
+  identity:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: identity
+    environment: &srv_env
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8001
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8001:8001"]
+    depends_on: [postgres, redis]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  catalog:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: catalog
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8002
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+    ports: ["8002:8002"]
+    depends_on: [postgres, redis]
+
+  streaming:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: streaming
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8003
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      REDIS_URL: redis://redis:6379/0
+    ports: ["8003:8003"]
+    depends_on: [postgres, redis]
+
+  ai_guide:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: ai_guide
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8004
+      AI_PROVIDER: mock
+    ports: ["8004:8004"]
+    depends_on: [postgres, redis]
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: worldview
+      POSTGRES_PASSWORD: dev-password
+      POSTGRES_DB: worldview
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+volumes:
+  pgdata:
