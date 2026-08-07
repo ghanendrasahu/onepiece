@@ -1,0 +1,21 @@
+{{- range $name, $cfg := .Values.services }}
+{{- if and $cfg.enabled (eq (include "worldview.rolloutEnabled" $cfg) "true") }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "worldview.fullname" $ }}-{{ include "worldview.k8sName" $name }}
+spec:
+  metrics:
+    - name: http-error-rate
+      interval: 30s
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: {{ $.Values.prometheusAddress | default "http://prometheus:9090" | quote }}
+          query: |
+            sum(rate(http_requests_total{component="{{ $name }}", status=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_requests_total{component="{{ $name }}"}[5m])), 1e-6)
+      threshold: "0.01"
+{{- end }}
+{{- end }}

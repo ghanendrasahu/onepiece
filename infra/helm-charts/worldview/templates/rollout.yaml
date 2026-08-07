@@ -1,8 +1,8 @@
 {{- range $name, $cfg := .Values.services }}
-{{- if and $cfg.enabled (eq (include "worldview.rolloutEnabled" $cfg) "false") }}
+{{- if and $cfg.enabled (eq (include "worldview.rolloutEnabled" $cfg) "true") }}
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: {{ include "worldview.serviceName" (dict "Release" $.Release "name" $name) }}
   labels:
@@ -15,6 +15,20 @@ spec:
     matchLabels:
       app.kubernetes.io/instance: {{ $.Release.Name }}
       app.kubernetes.io/component: {{ $name }}
+  strategy:
+    canary:
+      steps:
+        - setWeight: 5
+        - pause: { duration: 60 }
+        - setWeight: 25
+        - pause: { duration: 60 }
+        - setWeight: 100
+      analysis:
+        templates:
+          - templateName: {{ include "worldview.fullname" $ }}-{{ include "worldview.k8sName" $name }}
+        args:
+          - name: service
+            value: {{ include "worldview.k8sName" $name }}
   {{- include "worldview.podTemplate" (dict "root" $ "name" $name "cfg" $cfg) | nindent 2 }}
 {{- end }}
 {{- end }}
