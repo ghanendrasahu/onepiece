@@ -103,3 +103,31 @@ def test_knowledge_service_merges_live_over_seed():
     entries = asyncio.run(service.entries())
     by_id = {e.id: e for e in entries}
     assert by_id["poi-tokyo-tower"].name_en == "Tokyo Tower Reborn"
+
+
+def test_ask_degrades_when_model_gateway_down():
+    import asyncio
+
+    import httpx
+    from worldview_ai_guide.routers.guide import _complete
+
+    class _DownProvider:
+        async def complete(self, query, context, lang):
+            raise httpx.ConnectError("gateway down")
+
+    async def run():
+        service = KnowledgeService(_FakeCatalog([catalog_entry]))
+        retriever = await service.retriever()
+        context = retriever.search("crossing", tour_id="tour-001")
+        return await _complete(_DownProvider(), "crossing", context, "en")
+
+    catalog_entry = KnowledgeEntry(
+        id="poi-shibuya",
+        tour_id="tour-001",
+        name_en="Shibuya Crossing",
+        text="Shibuya Crossing is a busy pedestrian scramble.",
+        tags=("street",),
+    )
+    answer, provider_name = asyncio.run(run())
+    assert provider_name == "MockProvider"
+    assert "Shibuya Crossing" in answer.answer

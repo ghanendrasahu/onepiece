@@ -1,5 +1,6 @@
 """Live smoke test: boots all four services with uvicorn and exercises the full stack over HTTP."""
 
+import importlib.util
 import os
 import subprocess
 import sys
@@ -7,12 +8,15 @@ import tempfile
 import time
 
 import httpx
-from ulid import new as new_ulid
-from worldview.db import get_session_factory
-from worldview_catalog.models import Tour
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB = tempfile.mkdtemp() + "/smoke.db"
+
+_seed_spec = importlib.util.spec_from_file_location(
+    "seed_catalog", os.path.join(ROOT, "scripts", "seed_catalog.py")
+)
+seed_catalog = importlib.util.module_from_spec(_seed_spec)
+_seed_spec.loader.exec_module(seed_catalog)
 
 SERVICES = [
     ("identity", 8001),
@@ -109,25 +113,12 @@ def run():
         bad = c.post(f"{BASE['streaming']}/v1/streams/{sid}/start", headers=auth)
         check("streaming", "reject ended->live", bad.status_code == 409)
 
-        with get_session_factory(f"sqlite:///{DB}")() as db:
-            db.add(
-                Tour(
-                    id=str(new_ulid()),
-                    title_en="Shibuya Crossing",
-                    kind="live",
-                    status="published",
-                    latitude=35.6595,
-                    longitude=139.7005,
-                    region_key="ap-southeast-1",
-                    is_free=True,
-                )
-            )
-            db.commit()
+        seed_catalog.seed(f"sqlite:///{DB}")
         tours = c.get(f"{BASE['catalog']}/v1/tours")
         check(
             "catalog",
             "list tours",
-            tours.status_code == 200 and tours.json()["items"][0]["title_en"] == "Shibuya Crossing",
+            tours.status_code == 200 and tours.json()["items"][0]["title_en"] == "Tokyo Night Walk",
         )
         nearby = c.get(
             f"{BASE['catalog']}/v1/explore/nearby",
@@ -154,6 +145,23 @@ def run():
             "grounded ask",
             ask.status_code == 200 and "Tokyo Tower" in ask.json()["answer"],
             str(ask.json()),
+        )
+        # Skytree exists only in the seeded catalog, not in the guide's seed set,
+        # so a correct answer proves the guide grounded on live catalog data.
+        skytree = c.post(
+            f"{BASE['ai_guide']}/v1/guide/ask",
+            json={
+                "tour_id": "tour-tokyo",
+                "t": 300,
+                "text": "Tell me about the Skytree",
+                "lang": "en",
+            },
+        )
+        check(
+            "ai_guide",
+            "grounded on live catalog",
+            skytree.status_code == 200 and "Skytree" in skytree.json()["answer"],
+            str(skytree.json()),
         )
         langs = c.get(f"{BASE['ai_guide']}/v1/guide/languages")
         check(

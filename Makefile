@@ -1,4 +1,4 @@
-.PHONY: install lint test migrate migrate-new db-up test-postgres security \
+.PHONY: install lint test migrate migrate-new db-up test-postgres security seed \
 	run-gateway run-identity run-catalog run-streaming run-ai-guide run-all smoke
 
 install:
@@ -17,6 +17,9 @@ test:
 
 smoke-test:
 	uv run python scripts/smoke_test.py
+
+seed:
+	uv run python scripts/seed_catalog.py
 
 # --- Database (PostgreSQL via docker) ---
 db-up:
