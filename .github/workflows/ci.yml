@@ -24,7 +24,7 @@ jobs:
     env:
       WORLDVIEW_TEST_DATABASE_URL: postgresql+psycopg://worldview:worldview@localhost:5432/worldview_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -69,7 +69,7 @@ jobs:
       run:
         working-directory: clients/web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -89,7 +89,7 @@ jobs:
       matrix:
         service: [identity, catalog, streaming, ai_guide, gateway]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build image
         run: docker build --build-arg SERVICE=${{ matrix.service }} -f infra/docker/Dockerfile.service -t worldview/${{ matrix.service }} .
 
@@ -129,7 +129,7 @@ jobs:
   helm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: azure/setup-helm@v4
         with:
           version: v4.2.3
