@@ -24,3 +24,18 @@ class StreamOut(OrmModel):
 class ActionIn(BaseModel):
     # future: reason / metadata for the transition
     note: str | None = None
+
+
+class Rendition(BaseModel):
+    quality: str
+    media_type: str = "video"
+    width: int
+    height: int
+    manifest_url: str
+
+
+class ManifestOut(BaseModel):
+    session_id: str
+    status: str
+    container: str = "hls"
+    renditions: list[Rendition]

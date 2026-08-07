@@ -86,3 +86,24 @@ def test_creator_authorization(tmp_path, monkeypatch):
 def test_get_missing_stream(tmp_path, monkeypatch):
     with _open_client(tmp_path, monkeypatch) as c:
         assert c.get("/v1/streams/nonexistent").status_code == 404
+
+
+def test_manifest_only_available_when_live(client):
+    headers = _auth_headers()
+    stream_id = client.post(
+        "/v1/streams", json={"quality_ladder": "720p,1080p,4k_tiled"}, headers=headers
+    ).json()["id"]
+
+    assert client.get(f"/v1/streams/{stream_id}/manifest").status_code == 409
+
+    client.post(f"/v1/streams/{stream_id}/start", headers=headers)
+    m = client.get(f"/v1/streams/{stream_id}/manifest")
+    assert m.status_code == 200
+    body = m.json()
+    assert body["status"] == "live"
+    quals = [r["quality"] for r in body["renditions"]]
+    assert quals == ["720p", "1080p", "4k_tiled"]
+    first = body["renditions"][0]
+    assert first["manifest_url"] == f"/v1/streams/{stream_id}/renditions/720p/index.m3u8"
+    r1080 = next(r for r in body["renditions"] if r["quality"] == "1080p")
+    assert (r1080["width"], r1080["height"]) == (1920, 1080)

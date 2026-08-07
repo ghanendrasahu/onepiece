@@ -49,7 +49,6 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
     jwt_access_ttl_minutes: int = Field(default=15, validation_alias="JWT_ACCESS_TTL_MINUTES")
     jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
-    jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
 
     # --- observability ---
     sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
@@ -58,6 +57,11 @@ class Settings(BaseSettings):
     # --- external AI (used by ai-guide) ---
     ai_provider: str = Field(default="mock", validation_alias="AI_PROVIDER")
     model_gateway_url: str | None = Field(default=None, validation_alias="AI_MODEL_GATEWAY_URL")
+
+    # --- internal peer services (ai-guide -> catalog) ---
+    catalog_service_url: str = Field(
+        default="http://localhost:8002", validation_alias="CATALOG_SERVICE_URL"
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod

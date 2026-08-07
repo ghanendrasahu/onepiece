@@ -10,7 +10,7 @@ from worldview.auth import get_current_user
 from worldview.db import get_db
 
 from ..models import StreamSession
-from ..schemas import CreateStreamIn, StreamOut
+from ..schemas import CreateStreamIn, ManifestOut, StreamOut
 from ..state_machine import InvalidTransition, Transition
 
 router = APIRouter(prefix="/v1/streams", tags=["streams"])
@@ -41,6 +41,19 @@ def create_stream(
 def list_live(db: Session = Depends(get_db)) -> list[StreamSession]:
     rows = db.execute(select(StreamSession).where(StreamSession.status == "live")).scalars()
     return list(rows)
+
+
+@router.get("/{stream_id}/manifest", response_model=ManifestOut)
+def get_manifest(stream_id: str, db: Session = Depends(get_db)) -> ManifestOut:
+    from ..manifest import build_manifest
+
+    session_row = _get_or_404(stream_id, db)
+    if session_row.status not in {"live", "paused"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Stream is {session_row.status}; no manifest available",
+        )
+    return build_manifest(session_row)
 
 
 @router.get("/{stream_id}", response_model=StreamOut)

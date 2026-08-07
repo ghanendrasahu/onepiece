@@ -2,13 +2,12 @@
 
 from fastapi import APIRouter, Depends
 
-from ..knowledge import SEED_ENTRIES, SUPPORTED_LANGUAGES, KeywordRetriever
+from ..catalog import CatalogClient, KnowledgeService
+from ..knowledge import SUPPORTED_LANGUAGES
 from ..provider import Provider, build_provider
 from ..schemas import AskIn, AskOut, Citation, LanguagesOut, TranslateSignOut
 
 router = APIRouter(prefix="/v1/guide", tags=["guide"])
-
-_RETRIEVER = KeywordRetriever(SEED_ENTRIES)
 
 
 def _provider() -> Provider:
@@ -21,9 +20,21 @@ def _provider() -> Provider:
     )
 
 
+def get_knowledge_service() -> KnowledgeService:
+    from worldview.config import get_settings
+
+    url = get_settings().catalog_service_url
+    return KnowledgeService(CatalogClient(url))
+
+
 @router.post("/ask", response_model=AskOut)
-async def ask(payload: AskIn, provider: Provider = Depends(_provider)) -> AskOut:
-    context = _RETRIEVER.search(payload.text, tour_id=payload.tour_id, top_k=6)
+async def ask(
+    payload: AskIn,
+    provider: Provider = Depends(_provider),
+    knowledge: KnowledgeService = Depends(get_knowledge_service),
+) -> AskOut:
+    retriever = await knowledge.retriever()
+    context = retriever.search(payload.text, tour_id=payload.tour_id, top_k=6)
     answer = await provider.complete(payload.text, context, payload.lang)
     return AskOut(
         answer=answer.answer,
