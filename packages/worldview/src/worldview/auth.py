@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 from fastapi import Depends, HTTPException, status
@@ -93,7 +94,7 @@ def create_access_token(
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str, settings: Settings | None = None) -> dict:
+def decode_access_token(token: str, settings: Settings | None = None) -> dict[str, Any]:
     """Decode and validate a JWT, raising on expiry/signature failure."""
     settings = settings or get_settings()
     try:
@@ -109,7 +110,7 @@ def decode_access_token(token: str, settings: Settings | None = None) -> dict:
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_BEARER),
     settings: Settings = Depends(get_settings),
-) -> dict:
+) -> dict[str, Any]:
     """FastAPI dependency resolving the authenticated user claims."""
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")

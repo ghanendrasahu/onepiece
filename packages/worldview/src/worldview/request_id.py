@@ -9,7 +9,10 @@ import logging
 import uuid
 from contextvars import ContextVar
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.types import ASGIApp
 
 _request_id: ContextVar[str] = ContextVar("request_id", default="-")
 
@@ -22,7 +25,10 @@ def current_request_id() -> str:
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """Set ``X-Request-ID`` (generating one if absent), bind it for loggers, echo it back."""
 
-    async def dispatch(self, request, call_next):
+    def __init__(self, app: ASGIApp) -> None:
+        super().__init__(app)
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
         token = _request_id.set(request_id)
         try:

@@ -6,6 +6,7 @@ via ``postgresql+psycopg://`` connection strings - no code changes required.
 
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -20,7 +21,7 @@ class Base(DeclarativeBase):
     """Declarative base for all WorldView ORM models."""
 
 
-def _connect_args(database_url: str) -> dict:
+def _connect_args(database_url: str) -> dict[str, Any]:
     if database_url.startswith("sqlite"):
         return {"check_same_thread": False}
     return {}
@@ -91,7 +92,7 @@ def init_db(database_url: str | None = None, settings: Settings | None = None) -
         Base.metadata.create_all(engine)
 
 
-def _assert_schema_present(engine, service_name: str) -> None:
+def _assert_schema_present(engine: Engine, service_name: str) -> None:
     from sqlalchemy import inspect
 
     inspector = inspect(engine)

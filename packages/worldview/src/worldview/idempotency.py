@@ -82,7 +82,7 @@ class RedisIdempotency:
             return None
         try:
             doc = json.loads(raw)
-            return _DecodedResponse(
+            return _CachedResponse(
                 doc["status"],
                 doc["content_type"],
                 base64.b64decode(doc["body"]),
@@ -108,11 +108,11 @@ def build_idempotency_store(redis_url: str | None) -> IdempotencyStore:
     return MemoryIdempotencyStore()
 
 
-class _DecodedResponse:
-    def __init__(self, status_code: int, content_type: str, body: bytes) -> None:
+class _CachedResponse:
+    def __init__(self, status_code: int, content_type: str, body_bytes: bytes) -> None:
         self.status_code = status_code
         self.content_type = content_type
-        self.body_bytes = body
+        self.body_bytes = body_bytes
 
 
 def _cache_key(request: Request, key: str) -> str:
@@ -178,13 +178,6 @@ def _content_type(response: Response) -> str:
     return response.headers.get("content-type", "application/json")
 
 
-class _CachedResponse:
-    def __init__(self, status_code: int, content_type: str, body_bytes: bytes) -> None:
-        self.status_code = status_code
-        self.content_type = content_type
-        self.body_bytes = body_bytes
-
-
 def idempotency_key(request: Request) -> str:
     """FastAPI dependency exposing the idempotency key or raising if absent."""
     key = request.state.idempotency_key
@@ -202,7 +195,3 @@ _required = Depends(idempotency_key)
 def idempotency_required(key: str = _required) -> str:
     """Declare an endpoint as requiring an idempotency key."""
     return key
-
-
-async def raise_http(status_code_: int, detail: str) -> None:
-    raise HTTPException(status_code=status_code_, detail=detail)

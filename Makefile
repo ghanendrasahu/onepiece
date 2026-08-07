@@ -9,7 +9,7 @@ lint:
 	uv run ruff format --check .
 
 security:
-	uv run bandit -r libs services -x '*/tests/*,*/migrations/*'
+	uv run bandit -r apps packages -x '*/tests/*,*/migrations/*'
 	uv run pip-audit
 
 test:
