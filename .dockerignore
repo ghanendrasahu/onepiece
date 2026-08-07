@@ -1,0 +1,32 @@
+# VCS & CI
+.git/
+.github/
+
+# Python / uv
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / web (not shipped in the service image)
+clients/
+node_modules/
+*.log
+
+# Env, secrets & local data
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+data/
+
+# Docs & ops
+docs/
+infra/terraform/
+infra/argocd/

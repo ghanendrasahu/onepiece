@@ -74,5 +74,7 @@ local SQLite file; production uses PostgreSQL (`postgresql+psycopg://`).
 | ai_guide | 8004 | Grounded Q&A over tour knowledge |
 
 ## Status
-- 31 tests passing; lint + format clean; end-to-end smoke passing.
+- 56 tests passing; lint + format clean; end-to-end smoke passing.
+- Passwords hashed with **argon2id** (legacy PBKDF2 hashes auto-upgrade on login);
+  PostgreSQL engines use a tuned connection pool (`DB_POOL_*` settings).
 - Speculative features from the docs (8K/16K, digital twins, social VR presence) are explicitly **not** implemented yet — see `docs/13-roadmap.md`.

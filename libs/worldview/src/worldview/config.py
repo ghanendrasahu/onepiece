@@ -41,6 +41,13 @@ class Settings(BaseSettings):
         default="sqlite:///./data/worldview.db", validation_alias="DATABASE_URL"
     )
 
+    # Connection-pool tuning (PostgreSQL only; ignored for SQLite).
+    db_pool_size: int = Field(default=10, validation_alias="DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, validation_alias="DB_MAX_OVERFLOW")
+    db_pool_timeout_seconds: int = Field(default=30, validation_alias="DB_POOL_TIMEOUT_SECONDS")
+    db_pool_recycle_seconds: int = Field(default=1800, validation_alias="DB_POOL_RECYCLE_SECONDS")
+    db_pool_pre_ping: bool = Field(default=True, validation_alias="DB_POOL_PRE_PING")
+
     # --- redis (optional in dev, required for prod-grade rate limiting) ---
     redis_url: str | None = Field(default=None, validation_alias="REDIS_URL")
 
