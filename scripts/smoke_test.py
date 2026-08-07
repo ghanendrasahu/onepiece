@@ -15,8 +15,13 @@ DB = tempfile.mkdtemp() + "/smoke.db"
 _seed_spec = importlib.util.spec_from_file_location(
     "seed_catalog", os.path.join(ROOT, "scripts", "seed_catalog.py")
 )
+if _seed_spec is None:
+    raise SystemExit("cannot locate scripts/seed_catalog.py")
+_seed_loader = _seed_spec.loader
+if _seed_loader is None:
+    raise SystemExit("seed_catalog has no loader")
 seed_catalog = importlib.util.module_from_spec(_seed_spec)
-_seed_spec.loader.exec_module(seed_catalog)
+_seed_loader.exec_module(seed_catalog)
 
 SERVICES = [
     ("identity", 8001),
