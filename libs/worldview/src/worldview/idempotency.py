@@ -164,8 +164,11 @@ class IdempotencyHeaderMiddleware(BaseHTTPMiddleware):
 
 async def _collect_body(response: Response) -> bytes | None:
     """Read a streaming response body into bytes, or None if not possible."""
+    body_iterator = getattr(response, "body_iterator", None)
+    if body_iterator is None:
+        return None
     try:
-        chunks = [chunk async for chunk in response.body_iterator]
+        chunks = [chunk async for chunk in body_iterator]
     except (AttributeError, RuntimeError, TypeError):
         return None
     return b"".join(chunks)

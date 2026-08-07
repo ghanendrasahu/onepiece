@@ -7,12 +7,12 @@ via ``postgresql+psycopg://`` connection strings - no code changes required.
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from worldview.config import Settings, get_settings
 
-_ENGINES: dict[str, object] = {}
+_ENGINES: dict[str, Engine] = {}
 _SESSION_FACTORIES: dict[str, sessionmaker[Session]] = {}
 
 
@@ -26,7 +26,7 @@ def _connect_args(database_url: str) -> dict:
     return {}
 
 
-def get_engine(database_url: str | None = None, settings: Settings | None = None):
+def get_engine(database_url: str | None = None, settings: Settings | None = None) -> Engine:
     """Return a lazily-created, cached SQLAlchemy engine."""
     settings = settings or get_settings()
     url = database_url or settings.database_url
@@ -47,7 +47,9 @@ def _ensure_sqlite_dir(database_url: str) -> None:
         Path(parent).mkdir(parents=True, exist_ok=True)
 
 
-def get_session_factory(database_url: str | None = None, settings: Settings | None = None):
+def get_session_factory(
+    database_url: str | None = None, settings: Settings | None = None
+) -> sessionmaker[Session]:
     """Return a cached sessionmaker bound to the engine for ``database_url``."""
     settings = settings or get_settings()
     url = database_url or settings.database_url

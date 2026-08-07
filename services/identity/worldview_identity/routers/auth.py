@@ -84,7 +84,7 @@ def refresh(payload: RefreshIn, db: Session = Depends(get_db)) -> TokenOut:
     exp = row.expires_at if row is not None else None
     if exp is not None and exp.tzinfo is None:
         exp = exp.replace(tzinfo=UTC)
-    if row is None or row.revoked_at is not None or exp < datetime.now(UTC):
+    if row is None or row.revoked_at is not None or exp is None or exp < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
         )

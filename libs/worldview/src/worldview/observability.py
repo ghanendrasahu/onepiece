@@ -7,6 +7,7 @@
   (lazy import, no hard dep).
 """
 
+import importlib
 import logging
 import os
 import time
@@ -72,7 +73,7 @@ def instrument_app(app: FastAPI, service_name: str) -> None:
 
 def _init_sentry(service_name: str, settings) -> None:
     try:
-        import sentry_sdk
+        sentry_sdk = importlib.import_module("sentry_sdk")
 
         sentry_sdk.init(
             dsn=settings.sentry_dsn,
@@ -87,11 +88,17 @@ def _init_sentry(service_name: str, settings) -> None:
 
 def _init_tracing(service_name: str) -> None:
     try:
-        from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        trace = importlib.import_module("opentelemetry.trace")
+        _exporter = importlib.import_module("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
+        _resources = importlib.import_module("opentelemetry.sdk.resources")
+        _sdk_trace = importlib.import_module("opentelemetry.sdk.trace")
+        _export = importlib.import_module("opentelemetry.sdk.trace.export")
+
+        OTLPSpanExporter = _exporter.OTLPSpanExporter
+        Resource = _resources.Resource
+        SERVICE_NAME = _resources.SERVICE_NAME
+        TracerProvider = _sdk_trace.TracerProvider
+        BatchSpanProcessor = _export.BatchSpanProcessor
 
         provider = TracerProvider(resource=Resource.create({SERVICE_NAME: service_name}))
         provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))

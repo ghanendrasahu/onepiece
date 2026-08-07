@@ -1,0 +1,63 @@
+name: cd
+
+# GitOps deployment: after `ci` succeeds on main, validate the Helm chart and
+# sync the production Argo CD Application. The gateway deploys via an Argo
+# Rollout, so the canary (5 -> 25 -> 100%) and SLO analysis are performed by
+# the Rollout controller; Argo CD only needs to sync.
+#
+# No live cluster is assumed: without ARGOCD_SERVER / ARGOCD_AUTH_TOKEN the
+# chart is still validated and the run exits cleanly, relying on the declarative
+# app-of-apps (infra/argocd/application.yaml) to auto-sync on push to main.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROD_REGION: us-east-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    concurrency: production
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.2.3
+
+      - name: Validate chart for release
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=ci-only-secret-0123456789abcdef
+
+      - name: Render production manifests
+        run: |
+          helm template worldview infra/helm-charts/worldview \
+            --namespace prod \
+            -f infra/helm-charts/worldview/values/region-${{ env.PROD_REGION }}.yaml \
+            --set jwtSecret=ci-only-secret-0123456789abcdef > /tmp/rendered.yaml
+          grep -q "kind: Rollout" /tmp/rendered.yaml
+          grep -q "kind: Job" /tmp/rendered.yaml
+          grep -q "name: worldview-ai-guide" /tmp/rendered.yaml
+
+      - name: Sync Argo CD application
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          if [ -z "$ARGOCD_SERVER" ] || [ -z "$ARGOCD_AUTH_TOKEN" ]; then
+            echo "ARGOCD_SERVER/AUTH_TOKEN not configured; relying on app-of-apps auto-sync (GitOps)."
+            exit 0
+          fi
+          # Download the Argo CD CLI (pinned via checksum-free latest; align with cluster version in prod).
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          ./argocd app sync "worldview-${{ env.PROD_REGION }}" --timeout 600

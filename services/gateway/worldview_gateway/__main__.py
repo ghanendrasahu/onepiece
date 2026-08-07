@@ -10,8 +10,10 @@ from .config import get_gateway_settings
 
 
 def main() -> None:
+    from typing import Any
+
     settings = get_gateway_settings()
-    tls: dict[str, str] = {}
+    tls: dict[str, Any] = {}
     if settings.tls_cert_file and settings.tls_key_file:
         tls["ssl_certfile"] = settings.tls_cert_file
         tls["ssl_keyfile"] = settings.tls_key_file
