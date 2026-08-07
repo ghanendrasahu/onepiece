@@ -14,10 +14,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if path in _EXEMPT_PATHS:
             return await call_next(request)
 
-        limiter = request.app.state.rate_limiter
         client_ip = request.client.host if request.client else "unknown"
         parts = path.strip("/").split("/")
         service = parts[1] if len(parts) > 1 else "root"
+        # Auth endpoints get their own, stricter limit to blunt credential stuffing.
+        limiter = request.app.state.auth_rate_limiter
+        if service != "identity":
+            limiter = request.app.state.rate_limiter
         key = f"{client_ip}:{service}"
 
         allowed, retry_after = await limiter.allow(key)

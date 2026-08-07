@@ -32,6 +32,7 @@ class Session(Base):
     id: Mapped[str] = mapped_column(String(26), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     device_id: Mapped[str] = mapped_column(String(80), default="unknown")
+    refresh_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -45,6 +45,7 @@ def create_access_token(
     user_id: str,
     scopes: list[str],
     settings: Settings | None = None,
+    session_id: str | None = None,
 ) -> str:
     """Issue a short-lived JWT access token (audience-scoped)."""
     settings = settings or get_settings()
@@ -57,6 +58,8 @@ def create_access_token(
         "iss": "worldview",
         "region": settings.region_key,
     }
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -81,3 +84,13 @@ def get_current_user(
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
     return decode_access_token(credentials.credentials, settings)
+
+
+def generate_refresh_token() -> str:
+    """Return a high-entropy opaque refresh token (only its hash is persisted)."""
+    return secrets.token_urlsafe(64)
+
+
+def hash_refresh_token(token: str) -> str:
+    """Return a SHA-256 digest for storing/looking up a refresh token."""
+    return hashlib.sha256(token.encode()).hexdigest()
