@@ -1,0 +1,10 @@
+apiVersion: v2
+name: worldview
+description: WorldView VR control-plane services (identity, catalog, streaming, ai-guide, gateway) on Kubernetes.
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - worldview
+  - vr
+  - travel

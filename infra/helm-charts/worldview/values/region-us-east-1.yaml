@@ -1,0 +1,9 @@
+# Region overlay: US East (primary). Applied on top of values.yaml:
+#   helm upgrade worldview infra/helm-charts/worldview \
+#     -f infra/helm-charts/worldview/values/region-us-east-1.yaml \
+#     --set jwtSecret=<value>
+region: us-east-1
+image:
+  tag: latest
+ingress:
+  host: gateway.us-east-1.worldview.vr.example

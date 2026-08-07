@@ -109,3 +109,21 @@ jobs:
           docker tag worldview/${{ matrix.service }} $image:latest
           docker push $image:${{ github.sha }}
           docker push $image:latest
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.2.3
+      - name: Lint chart
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=ci-only-secret-0123456789abcdef
+      - name: Render manifests
+        run: |
+          helm template worldview infra/helm-charts/worldview \
+            --namespace prod \
+            --set jwtSecret=ci-only-secret-0123456789abcdef \
+            > /tmp/rendered.yaml
+          grep -q "kind: Job" /tmp/rendered.yaml
+          grep -q "name: worldview-ai-guide" /tmp/rendered.yaml

@@ -1,0 +1,73 @@
+# WorldView control-plane Helm values.
+# Every value can be overridden per region/environment with `-f values.<region>.yaml`.
+# NEVER commit a real JWT_SECRET (Ch05/8). Pass it at install time via
+#   --set jwtSecret=<base64>   or   --values secrets-prod.yaml
+
+env: prod
+region: us-east-1
+logLevel: INFO
+
+image:
+  registry: ghcr.io/ghanendrasahu
+  repository: worldview
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Required. ≥32 random chars in non-dev environments (mirrors the app's policy).
+jwtSecret: ""
+jwtAlgorithm: HS256
+
+database:
+  url: postgresql+psycopg://worldview:CHANGE_ME@worldview-postgres:5432/worldview
+redis:
+  url: redis://worldview-redis:6379/0
+
+# Optional provider/model-gateway endpoint (used by ai-guide). Leave empty for mock.
+modelGatewayUrl: ""
+
+serviceDefaults:
+  port: 8000
+  minReplicas: 1
+  maxReplicas: 4
+  targetCPUUtilization: 70
+  resources:
+    requests:
+      cpu: 100m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Each key maps to a Deployment + Service + (optionally) HPA + PDB.
+services:
+  identity:
+    enabled: true
+  catalog:
+    enabled: true
+  streaming:
+    enabled: true
+  ai_guide:
+    enabled: true
+    env:
+      # Real deployments point this at the model gateway; mock is the local fallback.
+      AI_PROVIDER: mock
+  gateway:
+    enabled: true
+    env:
+      GATEWAY_AUTH_RATE_LIMIT_RPM: "30"
+      GATEWAY_RATE_LIMIT_RPM: "600"
+
+migration:
+  enabled: true
+  # Runs `alembic upgrade head` once before install/upgrade (Helm pre-hook job).
+
+ingress:
+  enabled: true
+  className: nginx
+  host: gateway.worldview.vr.example
+  tls:
+    enabled: false
+    secretName: ""
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 64m
+    nginx.ingress.kubernetes.io/use-regex: "true"
