@@ -1,0 +1,18 @@
+[project]
+name = "worldview-ai-guide"
+version = "0.1.0"
+description = "WorldView VR AI World Guide service (RAG, grounded answers)"
+requires-python = ">=3.11"
+dependencies = [
+    "worldview>=0.1.0",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "httpx>=0.27",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["worldview_ai_guide"]

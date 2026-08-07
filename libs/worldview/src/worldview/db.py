@@ -1,0 +1,88 @@
+"""SQLAlchemy engine/session plumbing shared by all services.
+
+Default development driver is SQLite (zero-setup). Production uses PostgreSQL
+via ``postgresql+psycopg://`` connection strings - no code changes required.
+"""
+
+from collections.abc import Generator
+from pathlib import Path
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+from worldview.config import Settings, get_settings
+
+_ENGINES: dict[str, object] = {}
+_SESSION_FACTORIES: dict[str, sessionmaker[Session]] = {}
+
+
+class Base(DeclarativeBase):
+    """Declarative base for all WorldView ORM models."""
+
+
+def _connect_args(database_url: str) -> dict:
+    if database_url.startswith("sqlite"):
+        return {"check_same_thread": False}
+    return {}
+
+
+def get_engine(database_url: str | None = None, settings: Settings | None = None):
+    """Return a lazily-created, cached SQLAlchemy engine."""
+    settings = settings or get_settings()
+    url = database_url or settings.database_url
+    if url not in _ENGINES:
+        if url.startswith("sqlite"):
+            _ensure_sqlite_dir(url)
+        _ENGINES[url] = create_engine(url, connect_args=_connect_args(url), pool_pre_ping=True)
+    return _ENGINES[url]
+
+
+def _ensure_sqlite_dir(database_url: str) -> None:
+    """Create the parent directory for a file-backed SQLite database."""
+    path = database_url.replace("sqlite:///", "", 1)
+    if path == ":memory:":
+        return
+    parent = path.rsplit("/", 1)[0] if "/" in path else path.rsplit("\\", 1)[0]
+    if parent and parent != path:
+        Path(parent).mkdir(parents=True, exist_ok=True)
+
+
+def get_session_factory(database_url: str | None = None, settings: Settings | None = None):
+    """Return a cached sessionmaker bound to the engine for ``database_url``."""
+    settings = settings or get_settings()
+    url = database_url or settings.database_url
+    if url not in _SESSION_FACTORIES:
+        _SESSION_FACTORIES[url] = sessionmaker(
+            bind=get_engine(url, settings), expire_on_commit=False
+        )
+    return _SESSION_FACTORIES[url]
+
+
+def init_db(database_url: str | None = None, settings: Settings | None = None) -> None:
+    """Create all tables for the given engine (dev convenience; prod uses migrations)."""
+    from sqlalchemy import inspect
+
+    engine = get_engine(database_url, settings)
+    # Import models so metadata is populated before create_all.
+    Base.metadata.create_all(engine)
+    inspector = inspect(engine)
+    _ = inspector
+
+
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency yielding a session and rolling back on error.
+
+    Parameterless on purpose: any Pydantic-typed parameters would be
+    introspected by FastAPI as additional body/query dependencies and corrupt
+    the request schema.
+    """
+    session_factory = get_session_factory()
+    session = session_factory()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
