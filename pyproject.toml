@@ -36,7 +36,11 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]  # assert is the point of tests
 "**/tests/**" = ["S101"]
+"migrations/**" = ["E501", "UP007", "UP035", "I001"]  # Alembic-generated files
+"migrations/env.py" = ["I001"]
 "services/ai_guide/worldview_ai_guide/knowledge.py" = ["E501"]  # natural-language seed prose
+"services/gateway/worldview_gateway/__main__.py" = ["S104"]  # dev/ops entrypoint binds all interfaces
+"libs/worldview/src/worldview/testing.py" = ["S608"]  # table names come from live DB introspection, not user input
 
 [tool.mypy]
 python_version = "3.11"

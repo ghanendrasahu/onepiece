@@ -19,6 +19,7 @@ SERVICES = [
     ("catalog", 8002),
     ("streaming", 8003),
     ("ai_guide", 8004),
+    ("gateway", 8000),
 ]
 
 BASE = {name: f"http://127.0.0.1:{port}" for name, port in SERVICES}
@@ -158,6 +159,13 @@ def run():
         check(
             "ai_guide", "languages", langs.status_code == 200 and "ja" in langs.json()["languages"]
         )
+
+        me_via_gw = c.get(f"{BASE['gateway']}/api/identity/v1/users/me")
+        check("gateway", "route to identity", me_via_gw.status_code == 401)
+        tours_via_gw = c.get(f"{BASE['gateway']}/api/catalog/v1/tours")
+        check("gateway", "route to catalog", tours_via_gw.status_code == 200)
+        rid = tours_via_gw.headers.get("X-Request-ID")
+        check("gateway", "request-id header", bool(rid))
 
     print()
     if failures:

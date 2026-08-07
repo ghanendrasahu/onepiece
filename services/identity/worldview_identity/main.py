@@ -2,10 +2,12 @@
 
 from fastapi import FastAPI
 from worldview.config import get_settings
+from worldview.cors import add_cors
 from worldview.db import init_db
 from worldview.health import router as health_router
 from worldview.idempotency import IdempotencyHeaderMiddleware
 from worldview.logging import setup_logging
+from worldview.request_id import RequestIDMiddleware
 
 from . import models  # noqa: F401 - register tables with Base.metadata
 from .routers import auth, me
@@ -23,6 +25,8 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         docs_url="/docs",
     )
+    add_cors(app, settings)
+    app.add_middleware(RequestIDMiddleware)
     app.add_middleware(IdempotencyHeaderMiddleware)
     app.include_router(health_router)
     app.include_router(auth.router)

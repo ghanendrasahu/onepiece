@@ -1,7 +1,8 @@
-.PHONY: install lint test run-identity run-catalog run-streaming run-ai-guide run-all
+.PHONY: install lint test migrate migrate-new db-up test-postgres \
+	run-gateway run-identity run-catalog run-streaming run-ai-guide run-all smoke
 
 install:
-	uv sync
+	uv sync --all-packages
 
 lint:
 	uv run ruff check .
@@ -9,6 +10,30 @@ lint:
 
 test:
 	uv run pytest
+
+smoke-test:
+	uv run python scripts/smoke_test.py
+
+# --- Database (PostgreSQL via docker) ---
+db-up:
+	docker compose up -d postgres
+
+migrate:
+	uv run alembic upgrade head
+
+migrate-new:
+	uv run alembic revision --autogenerate -m "$(m)"
+
+migrate-check:
+	uv run alembic check
+
+# Run the whole suite + migrations against real PostgreSQL (needs `make db-up`).
+test-postgres:
+	set "WORLDVIEW_TEST_DATABASE_URL=postgresql+psycopg://worldview:dev-password@localhost:5432/worldview" && uv run alembic upgrade head && uv run pytest
+
+# --- Local dev (SQLite, zero-setup) ---
+run-gateway:
+	uv run --directory services/gateway python -m worldview_gateway
 
 run-identity:
 	uv run --directory services/identity uvicorn worldview_identity.main:app --reload --port 8001
@@ -22,5 +47,6 @@ run-streaming:
 run-ai-guide:
 	uv run --directory services/ai_guide uvicorn worldview_ai_guide.main:app --reload --port 8004
 
+# --- Full stack (Postgres + Redis + gateway + all services) in containers ---
 run-all:
 	docker compose up --build

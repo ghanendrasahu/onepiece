@@ -1,4 +1,19 @@
 services:
+  # Runs database migrations once before services start.
+  migrate:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: identity
+    command: ["sh", "-c", "uv run alembic upgrade head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   identity:
     build:
       context: .
@@ -10,10 +25,13 @@ services:
       REGION_KEY: us-east-1
       PORT: 8001
       DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
       REDIS_URL: redis://redis:6379/0
     ports: ["8001:8001"]
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8001/healthz').status==200 else 1)"]
       interval: 10s
@@ -31,9 +49,17 @@ services:
       REGION_KEY: us-east-1
       PORT: 8002
       DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
     ports: ["8002:8002"]
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8002/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   streaming:
     build:
@@ -46,10 +72,18 @@ services:
       REGION_KEY: us-east-1
       PORT: 8003
       DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
-      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
       REDIS_URL: redis://redis:6379/0
     ports: ["8003:8003"]
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8003/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   ai_guide:
     build:
@@ -63,20 +97,64 @@ services:
       PORT: 8004
       AI_PROVIDER: mock
     ports: ["8004:8004"]
-    depends_on: [postgres, redis]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8004/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Single public entry point.
+  gateway:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: gateway
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8000
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      REDIS_URL: redis://redis:6379/0
+      GATEWAY_RATE_LIMIT_RPM: ${GATEWAY_RATE_LIMIT_RPM:-600}
+      IDENTITY_UPSTREAM: http://identity:8001
+      CATALOG_UPSTREAM: http://catalog:8002
+      STREAMING_UPSTREAM: http://streaming:8003
+      AI_GUIDE_UPSTREAM: http://ai_guide:8004
+    ports: ["8000:8000"]
+    depends_on: [identity, catalog, streaming, ai_guide]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: worldview
-      POSTGRES_PASSWORD: dev-password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-password}
       POSTGRES_DB: worldview
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worldview"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   redis:
     image: redis:7-alpine
     ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:

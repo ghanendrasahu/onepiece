@@ -7,7 +7,10 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'catalog.db'}")
+    from worldview.testing import test_database_url, truncate_all
+
+    url = test_database_url(tmp_path)
+    monkeypatch.setenv("DATABASE_URL", url)
     from worldview.config import reset_settings
 
     reset_settings()
@@ -15,6 +18,7 @@ def client(tmp_path, monkeypatch):
 
     reload(main)
     with TestClient(main.app) as c:
+        truncate_all(url)
         yield c
 
 
