@@ -1,13 +1,16 @@
 """AI guide routes."""
 
+import httpx
 from fastapi import APIRouter, Depends
 
 from ..catalog import CatalogClient, KnowledgeService
 from ..knowledge import SUPPORTED_LANGUAGES
-from ..provider import Provider, build_provider
+from ..provider import Answer, MockProvider, Provider, build_provider
 from ..schemas import AskIn, AskOut, Citation, LanguagesOut, TranslateSignOut
 
 router = APIRouter(prefix="/v1/guide", tags=["guide"])
+
+_service: KnowledgeService | None = None
 
 
 def _provider() -> Provider:
@@ -21,10 +24,24 @@ def _provider() -> Provider:
 
 
 def get_knowledge_service() -> KnowledgeService:
-    from worldview.config import get_settings
+    """Return the process-wide knowledge service (lazy, request-independent)."""
+    global _service
+    if _service is None:
+        from worldview.config import get_settings
 
-    url = get_settings().catalog_service_url
-    return KnowledgeService(CatalogClient(url))
+        _service = KnowledgeService(CatalogClient(get_settings().catalog_service_url))
+    return _service
+
+
+async def _complete(provider: Provider, query: str, context, lang: str) -> tuple[Answer, str]:
+    """Complete, degrading to the mock on any model-gateway transport error."""
+    try:
+        answer = await provider.complete(query, context, lang)
+        return answer, type(provider).__name__
+    except httpx.HTTPError:
+        mock = MockProvider()
+        answer = await mock.complete(query, context, lang)
+        return answer, type(mock).__name__
 
 
 @router.post("/ask", response_model=AskOut)
@@ -35,13 +52,13 @@ async def ask(
 ) -> AskOut:
     retriever = await knowledge.retriever()
     context = retriever.search(payload.text, tour_id=payload.tour_id, top_k=6)
-    answer = await provider.complete(payload.text, context, payload.lang)
+    answer, provider_name = await _complete(provider, payload.text, context, payload.lang)
     return AskOut(
         answer=answer.answer,
         lang=answer.lang,
         citations=[Citation(**c) for c in answer.citations],
         suggested_hotspots=answer.suggested_hotspots,
-        provider=type(provider).__name__,
+        provider=provider_name,
     )
 
 

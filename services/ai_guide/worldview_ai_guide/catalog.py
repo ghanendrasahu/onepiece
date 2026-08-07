@@ -43,7 +43,11 @@ class CatalogClient:
         return resp.json().get("items", [])
 
     async def _pois(self, tour_id: str) -> list[dict]:
-        resp = await self._client.get(f"{self._base_url}/v1/tours/{tour_id}/pois")
+        # Request the whole-tour POI set (t in the future) so temporal POIs are
+        # included in the knowledge base regardless of playback position.
+        resp = await self._client.get(
+            f"{self._base_url}/v1/tours/{tour_id}/pois", params={"t": 1e9}
+        )
         resp.raise_for_status()
         return resp.json()
 
