@@ -1,4 +1,4 @@
-.PHONY: install lint test migrate migrate-new db-up test-postgres \
+.PHONY: install lint test migrate migrate-new db-up test-postgres security \
 	run-gateway run-identity run-catalog run-streaming run-ai-guide run-all smoke
 
 install:
@@ -7,6 +7,10 @@ install:
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+
+security:
+	uv run bandit -r libs services -x '*/tests/*,*/migrations/*'
+	uv run pip-audit
 
 test:
 	uv run pytest

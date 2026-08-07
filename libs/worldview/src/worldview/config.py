@@ -15,7 +15,7 @@ from typing import Any
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_EPHEMERAL_SECRET = "dev-only-change-me"
+_EPHEMERAL_SECRET = "dev-only-change-me"  # nosec B105
 
 
 class Settings(BaseSettings):

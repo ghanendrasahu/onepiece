@@ -29,7 +29,7 @@ def truncate_all(database_url: str) -> None:
     with engine.connect() as conn:
         if database_url.startswith("sqlite"):
             for table in tables:
-                conn.execute(text(f'DELETE FROM "{table}"'))
+                conn.execute(text(f'DELETE FROM "{table}"'))  # nosec B608
         else:
             conn.execute(
                 text(

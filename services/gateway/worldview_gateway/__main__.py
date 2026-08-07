@@ -17,7 +17,7 @@ def main() -> None:
         tls["ssl_keyfile"] = settings.tls_key_file
     uvicorn.run(
         "worldview_gateway.main:app",
-        host="0.0.0.0",
+        host="0.0.0.0",  # nosec B104
         port=settings.port,
         log_level=settings.log_level.lower(),
         **tls,
