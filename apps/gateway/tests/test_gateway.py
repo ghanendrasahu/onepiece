@@ -28,6 +28,7 @@ async def create(request: Request):
 def settings() -> GatewaySettings:
     return GatewaySettings(
         cors_origins=["*"],
+        redis_url=None,
         identity_upstream="http://upstream",
         catalog_upstream="http://upstream",
         streaming_upstream="http://upstream",

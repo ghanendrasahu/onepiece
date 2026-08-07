@@ -38,6 +38,8 @@ failures = []
 
 
 def boot():
+    tmpdir = tempfile.mkdtemp()
+    os.chdir(tmpdir)
     env = dict(os.environ)
     env["DATABASE_URL"] = f"sqlite:///{DB}"
     env["JWT_SECRET"] = "smoke-test-secret-key-01234567890123456789"

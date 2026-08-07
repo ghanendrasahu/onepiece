@@ -118,7 +118,7 @@ services:
       ENV: dev
       REGION_KEY: us-east-1
       PORT: 8000
-      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      CORS_ORIGINS: '["*"]'
       REDIS_URL: redis://redis:6379/0
       GATEWAY_RATE_LIMIT_RPM: ${GATEWAY_RATE_LIMIT_RPM:-600}
       IDENTITY_UPSTREAM: http://identity:8001
