@@ -40,19 +40,19 @@ test-postgres:
 
 # --- Local dev (SQLite, zero-setup) ---
 run-gateway:
-	uv run --directory services/gateway python -m worldview_gateway
+	uv run --directory apps/gateway python -m worldview_gateway
 
 run-identity:
-	uv run --directory services/identity uvicorn worldview_identity.main:app --reload --port 8001
+	uv run --directory apps/identity uvicorn worldview_identity.main:app --reload --port 8001
 
 run-catalog:
-	uv run --directory services/catalog uvicorn worldview_catalog.main:app --reload --port 8002
+	uv run --directory apps/catalog uvicorn worldview_catalog.main:app --reload --port 8002
 
 run-streaming:
-	uv run --directory services/streaming uvicorn worldview_streaming.main:app --reload --port 8003
+	uv run --directory apps/streaming uvicorn worldview_streaming.main:app --reload --port 8003
 
 run-ai-guide:
-	uv run --directory services/ai_guide uvicorn worldview_ai_guide.main:app --reload --port 8004
+	uv run --directory apps/ai_guide uvicorn worldview_ai_guide.main:app --reload --port 8004
 
 # --- Full stack (Postgres + Redis + gateway + all services) in containers ---
 run-all:

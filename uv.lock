@@ -1976,7 +1976,7 @@ wheels = [
 [[package]]
 name = "worldview"
 version = "0.1.0"
-source = { editable = "libs/worldview" }
+source = { editable = "packages/worldview" }
 dependencies = [
     { name = "alembic" },
     { name = "argon2-cffi" },
@@ -2013,7 +2013,7 @@ requires-dist = [
 [[package]]
 name = "worldview-ai-guide"
 version = "0.1.0"
-source = { editable = "services/ai_guide" }
+source = { editable = "apps/ai_guide" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -2026,13 +2026,13 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "worldview", editable = "libs/worldview" },
+    { name = "worldview", editable = "packages/worldview" },
 ]
 
 [[package]]
 name = "worldview-catalog"
 version = "0.1.0"
-source = { editable = "services/catalog" }
+source = { editable = "apps/catalog" }
 dependencies = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
@@ -2043,13 +2043,13 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "worldview", editable = "libs/worldview" },
+    { name = "worldview", editable = "packages/worldview" },
 ]
 
 [[package]]
 name = "worldview-gateway"
 version = "0.2.0"
-source = { editable = "services/gateway" }
+source = { editable = "apps/gateway" }
 dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
@@ -2064,13 +2064,13 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "redis", specifier = ">=5.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "worldview", editable = "libs/worldview" },
+    { name = "worldview", editable = "packages/worldview" },
 ]
 
 [[package]]
 name = "worldview-identity"
 version = "0.1.0"
-source = { editable = "services/identity" }
+source = { editable = "apps/identity" }
 dependencies = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
@@ -2081,7 +2081,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "worldview", editable = "libs/worldview" },
+    { name = "worldview", editable = "packages/worldview" },
 ]
 
 [[package]]
@@ -2112,7 +2112,7 @@ dev = [
 [[package]]
 name = "worldview-streaming"
 version = "0.1.0"
-source = { editable = "services/streaming" }
+source = { editable = "apps/streaming" }
 dependencies = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
@@ -2123,5 +2123,5 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "worldview", editable = "libs/worldview" },
+    { name = "worldview", editable = "packages/worldview" },
 ]

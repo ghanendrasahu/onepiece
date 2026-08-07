@@ -11,13 +11,14 @@ Monorepo implementing the architecture described in [`docs/`](docs/README.md).
 
 ```
 ├── docs/                      # Architecture & business documentation (14 docs)
-├── libs/
+├── packages/
 │   └── worldview/             # Shared library: config, auth, db, logging, idempotency
-├── services/                  # FastAPI microservices
+├── apps/                      # Deployable FastAPI microservices (each with src/ layout)
 │   ├── identity/              #   users, auth (register/login/me), GDPR stubs
 │   ├── catalog/               #   tours, POIs, hotspots, geo search
 │   ├── streaming/             #   live stream lifecycle state machine
-│   └── ai_guide/              #   RAG-grounded AI World Guide (mock + gateway providers)
+│   ├── ai_guide/              #   RAG-grounded AI World Guide (mock + gateway providers)
+│   └── gateway/               #   API gateway: routing, rate limiting, TLS
 ├── clients/
 │   └── web/                   # Vite + three.js 360° player
 ├── scripts/

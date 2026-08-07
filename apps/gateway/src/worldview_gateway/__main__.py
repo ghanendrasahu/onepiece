@@ -1,4 +1,4 @@
-"""Run the gateway: ``uv run --directory services/gateway python -m worldview_gateway``.
+"""Run the gateway: ``uv run --directory apps/gateway python -m worldview_gateway``.
 
 Opts into TLS termination when GATEWAY_TLS_CERT_FILE and GATEWAY_TLS_KEY_FILE
 are provided (e.g. a locally generated self-signed cert for a TLS demo).
