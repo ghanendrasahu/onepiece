@@ -65,11 +65,13 @@ template:
               name: {{ include "worldview.fullname" .root }}-common
           - secretRef:
               name: {{ include "worldview.fullname" .root }}-credentials
+        {{- with .cfg.env }}
         env:
-          {{- range $k, $v := .cfg.env }}
+          {{- range $k, $v := . }}
           - name: {{ $k }}
             value: {{ $v | quote }}
           {{- end }}
+        {{- end }}
         resources:
           {{- toYaml .root.Values.serviceDefaults.resources | nindent 10 }}
         readinessProbe:
