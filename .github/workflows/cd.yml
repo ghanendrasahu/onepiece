@@ -30,9 +30,9 @@ jobs:
     concurrency: production
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     steps:
-      - uses: actions/checkout@v4.1.1
+      - uses: actions/checkout@v7.0.1
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5.0.1
         with:
           version: v4.2.3
 
