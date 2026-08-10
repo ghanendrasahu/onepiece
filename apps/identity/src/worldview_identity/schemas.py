@@ -14,8 +14,10 @@ class RegisterIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
-    password: str
+    email: EmailStr | None = None
+    password: str | None = None
+    provider: str | None = Field(default=None, pattern="^(google|apple)$")
+    code: str | None = Field(default=None, min_length=1, max_length=512)
 
 
 class TokenOut(BaseModel):

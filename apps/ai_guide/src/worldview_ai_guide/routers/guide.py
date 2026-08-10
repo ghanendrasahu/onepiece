@@ -1,7 +1,11 @@
 """AI guide routes."""
 
+import asyncio
+import json
+
 import httpx
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 
 from ..catalog import CatalogClient, KnowledgeService
 from ..knowledge import SUPPORTED_LANGUAGES, KnowledgeEntry
@@ -98,17 +102,42 @@ async def ask(
     payload: AskIn,
     provider: Provider = Depends(_provider),
     knowledge: KnowledgeService = Depends(get_knowledge_service),
-) -> AskOut:
+) -> AskOut | StreamingResponse:
+    """Answer a sightline question.
+
+    With ``payload.stream`` the response is an SSE ``text/event-stream`` of
+    ``data: {"type":"token","text":"..."}`` chunks followed by a final
+    ``data: {"type":"answer","payload":{...AskOut}}`` frame, matching the
+    "streaming tokens over WebSocket/SSE + final structured answer" contract
+    in docs/06-api-specification.md §6.
+    """
     retriever = await knowledge.retriever()
     context = retriever.search(payload.text, tour_id=payload.tour_id, top_k=6)
     answer, provider_name = await _complete(provider, payload.text, context, payload.lang)
-    return AskOut(
+    final_ask = AskOut(
         answer=answer.answer,
         lang=answer.lang,
         citations=[Citation(**c) for c in answer.citations],
         suggested_hotspots=answer.suggested_hotspots,
         provider=provider_name,
     )
+    if not payload.stream:
+        return final_ask
+
+    tokens = _tokenize(answer.answer)
+
+    async def events():
+        for token in tokens:
+            yield f"data: {json.dumps({'type': 'token', 'text': token})}\n\n"
+            await asyncio.sleep(0.02)
+        yield f"data: {json.dumps({'type': 'answer', 'payload': final_ask.model_dump()})}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream")
+
+
+def _tokenize(text: str, size: int = 24) -> list[str]:
+    words = text.split()
+    return [" ".join(words[i : i + size]) for i in range(0, len(words), size)] or [""]
 
 
 @router.post("/translate-sign", response_model=TranslateSignOut)

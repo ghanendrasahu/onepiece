@@ -76,6 +76,13 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)) -> TokenOut:
 
 @router.post("/login", response_model=TokenOut)
 def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
+    if payload.provider:
+        return _social_login(payload, db)
+    if not payload.email or not payload.password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="email and password required, or provider and code",
+        )
     user = db.execute(
         select(User).where(User.email == str(payload.email).lower())
     ).scalar_one_or_none()
@@ -84,6 +91,44 @@ def login(payload: LoginIn, db: Session = Depends(get_db)) -> TokenOut:
     if needs_rehash(user.password_hash):
         user.password_hash = hash_password(payload.password)
     return _build_token(user, db)
+
+
+def _social_login(payload: LoginIn, db: Session) -> TokenOut:
+    """OIDC-style social login (docs/06 §3): exchange a provider code for a user.
+
+    ``code`` is verified against a fixed shared secret in dev; a real
+    deployment swaps this for the provider's token-endpoint exchange. A user is
+    matched by email when present, otherwise provisioned on first sign-in.
+    """
+    from worldview.config import get_settings
+
+    if not payload.code:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="code required"
+        )
+    if payload.code != get_settings().social_login_client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid social login code"
+        )
+    if payload.email:
+        user = db.execute(
+            select(User).where(User.email == str(payload.email).lower())
+        ).scalar_one_or_none()
+        if user is None:
+            user = User(
+                id=str(new_ulid()),
+                email=str(payload.email).lower(),
+                password_hash=hash_password(f"social:{payload.provider}:{new_ulid()}"),
+                display_name=str(payload.email).split("@")[0],
+                locale="en",
+            )
+            db.add(user)
+            db.flush()
+        return _build_token(user, db)
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail="email required to resolve social login",
+    )
 
 
 @router.post("/refresh", response_model=TokenOut)

@@ -57,6 +57,13 @@ class Settings(BaseSettings):
     jwt_access_ttl_minutes: int = Field(default=15, validation_alias="JWT_ACCESS_TTL_MINUTES")
     jwt_refresh_ttl_days: int = Field(default=30, validation_alias="JWT_REFRESH_TTL_DAYS")
 
+    # --- social login (identity) ---
+    # Dev-only shared secret matching the social provider's one-time code; a
+    # real deployment performs a token exchange instead.
+    social_login_client_secret: str = Field(
+        default="dev-social-code", validation_alias="SOCIAL_LOGIN_CLIENT_SECRET"
+    )
+
     # --- observability ---
     sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
     metrics_enabled: bool = Field(default=True, validation_alias="METRICS_ENABLED")

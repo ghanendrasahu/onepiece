@@ -53,6 +53,44 @@ def test_login_wrong_password(client):
     assert r.status_code == 401
 
 
+def test_social_login_provisions_user(client):
+    r = client.post(
+        "/v1/auth/login",
+        json={"email": "social@x.com", "provider": "google", "code": "dev-social-code"},
+    )
+    assert r.status_code == 200
+    assert r.json()["user_id"]
+
+    me = client.get("/v1/users/me", headers={"Authorization": f"Bearer {r.json()['access_token']}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == "social@x.com"
+
+
+def test_social_login_reuses_existing_user(client):
+    client.post(
+        "/v1/auth/register",
+        json={"email": "again@x.com", "password": "supersecret1", "display_name": "Again"},
+    )
+    r = client.post(
+        "/v1/auth/login",
+        json={"email": "again@x.com", "provider": "apple", "code": "dev-social-code"},
+    )
+    assert r.status_code == 200
+
+
+def test_social_login_rejects_bad_code(client):
+    r = client.post(
+        "/v1/auth/login",
+        json={"email": "bad@x.com", "provider": "google", "code": "nope"},
+    )
+    assert r.status_code == 401
+
+
+def test_social_login_requires_code(client):
+    r = client.post("/v1/auth/login", json={"email": "noc@x.com", "provider": "google"})
+    assert r.status_code == 422
+
+
 def test_unauthorized_me(client):
     assert client.get("/v1/users/me").status_code == 401
 

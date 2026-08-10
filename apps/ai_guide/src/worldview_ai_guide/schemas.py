@@ -9,6 +9,7 @@ class AskIn(BaseModel):
     look_dir: dict = Field(default_factory=lambda: {"yaw": 0.0, "pitch": 0.0})
     text: str = Field(min_length=1, max_length=500)
     lang: str = Field(default="en", max_length=10)
+    stream: bool = False
 
 
 class Citation(BaseModel):

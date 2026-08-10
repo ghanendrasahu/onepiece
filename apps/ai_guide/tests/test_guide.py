@@ -162,3 +162,25 @@ def test_itinerary_packs_preferred_pois(client):
     assert len(body["stops"]) > 0
     assert all(s["stop_minutes"] > 0 for s in body["stops"])
     assert body["total_hours"] <= 3
+
+
+def test_ask_stream_emits_tokens_then_answer(client):
+    r = client.post(
+        "/v1/guide/ask",
+        json={
+            "tour_id": "tour-tokyo",
+            "t": 120,
+            "text": "What is that orange tower?",
+            "lang": "en",
+            "stream": True,
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/event-stream")
+
+    frames = r.text.split("\n\n")
+    token_frames = [f for f in frames if '"type": "token"' in f]
+    answer_frame = [f for f in frames if '"type": "answer"' in f]
+    assert len(token_frames) >= 1
+    assert len(answer_frame) == 1
+    assert "Tokyo Tower" in answer_frame[0]
