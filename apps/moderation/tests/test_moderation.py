@@ -181,3 +181,56 @@ def test_admin_streams_lists_sessions(client):
     assert streams.status_code == 200
     ids = [s["id"] for s in streams.json()]
     assert "s-1" in ids and "s-2" in ids
+
+
+def test_admin_creators_lists_profiles(client):
+    from worldview.db import get_session_factory
+    from worldview_creators.models import CreatorProfile
+
+    creator = str(new_ulid())
+    with get_session_factory()() as db:
+        _seed_user(db, creator, "creator3@worldview.vr")
+        db.add(
+            CreatorProfile(
+                user_id=creator,
+                status="verified",
+                region="Tokyo",
+                equipment="insta360-x4",
+            )
+        )
+        db.commit()
+
+    r = client.get("/v1/admin/creators", headers=_auth(scopes=("admin",)))
+    assert r.status_code == 200
+    assert r.json()[0]["user_id"] == creator
+    assert r.json()[0]["status"] == "verified"
+
+    filtered = client.get("/v1/admin/creators?status=applied", headers=_auth(scopes=("admin",)))
+    assert filtered.json() == []
+
+
+def test_admin_payouts_lists_ledger(client):
+    from worldview.db import get_session_factory
+    from worldview_creators.models import Payout
+
+    creator = str(new_ulid())
+    with get_session_factory()() as db:
+        _seed_user(db, creator, "creator4@worldview.vr")
+        db.add(
+            Payout(
+                id="po-1",
+                creator_id=creator,
+                amount_cents=5000,
+                currency="USD",
+                status="pending",
+            )
+        )
+        db.commit()
+
+    r = client.get("/v1/admin/payouts", headers=_auth(scopes=("admin",)))
+    assert r.status_code == 200
+    assert r.json()[0]["id"] == "po-1"
+    assert r.json()[0]["amount_cents"] == 5000
+
+    filtered = client.get("/v1/admin/payouts?status=paid", headers=_auth(scopes=("admin",)))
+    assert filtered.json() == []

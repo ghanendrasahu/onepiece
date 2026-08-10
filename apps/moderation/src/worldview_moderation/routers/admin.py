@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 # Cross-app ORM models used read-only by the admin console. Importing them here
 # also registers their tables on the shared metadata so dev ``create_all``
 # (tests, local SQLite) builds the full schema alongside moderation's own rows.
+import worldview_creators.models as _creators_models  # noqa: F401
 import worldview_identity.models as _identity_models  # noqa: F401
 import worldview_streaming.models as _streaming_models  # noqa: F401
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -161,6 +162,60 @@ def moderation_decision(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.get("/creators", response_model=list[dict])
+def admin_creators(
+    q: str | None = None,
+    status: str | None = Query(default=None, pattern="^(applied|verified|rejected)$"),
+    claims: dict = Depends(admin_guard),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Creator profiles across the platform (FR-10.1)."""
+    from worldview_creators.models import CreatorProfile
+
+    stmt = select(CreatorProfile)
+    if status:
+        stmt = stmt.where(CreatorProfile.status == status)
+    rows = db.execute(stmt.order_by(CreatorProfile.created_at.desc()).limit(500)).scalars()
+    return [
+        {
+            "user_id": p.user_id,
+            "status": p.status,
+            "region": p.region,
+            "equipment": p.equipment,
+            "verified_at": p.verified_at.isoformat() if p.verified_at else None,
+            "created_at": p.created_at.isoformat(),
+        }
+        for p in rows
+    ]
+
+
+@router.get("/payouts", response_model=list[dict])
+def admin_payouts(
+    status: str | None = Query(default=None, pattern="^(pending|paid|failed)$"),
+    claims: dict = Depends(admin_guard),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    """Payout ledger across creators (FR-10.1)."""
+    from worldview_creators.models import Payout
+
+    stmt = select(Payout)
+    if status:
+        stmt = stmt.where(Payout.status == status)
+    rows = db.execute(stmt.order_by(Payout.created_at.desc()).limit(500)).scalars()
+    return [
+        {
+            "id": p.id,
+            "creator_id": p.creator_id,
+            "amount_cents": p.amount_cents,
+            "currency": p.currency,
+            "status": p.status,
+            "provider_tx_id": p.provider_tx_id,
+            "created_at": p.created_at.isoformat(),
+        }
+        for p in rows
+    ]
 
 
 @router.get("/actions", response_model=list[AdminActionOut])

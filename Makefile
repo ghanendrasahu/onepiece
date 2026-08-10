@@ -1,5 +1,5 @@
 .PHONY: install lint test migrate migrate-new db-up test-postgres security seed \
-	run-gateway run-identity run-catalog run-streaming run-ai-guide run-payments run-moderation run-all smoke
+	run-gateway run-identity run-catalog run-streaming run-ai-guide run-payments run-creators run-moderation run-all smoke
 
 install:
 	uv sync --all-packages
@@ -56,6 +56,9 @@ run-ai-guide:
 
 run-payments:
 	uv run --directory apps/payments uvicorn worldview_payments.main:app --reload --port 8005
+
+run-creators:
+	uv run --directory apps/creators uvicorn worldview_creators.main:app --reload --port 8007
 
 run-moderation:
 	uv run --directory apps/moderation uvicorn worldview_moderation.main:app --reload --port 8006

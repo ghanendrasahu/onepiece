@@ -12,6 +12,7 @@ members = [
     "worldview",
     "worldview-ai-guide",
     "worldview-catalog",
+    "worldview-creators",
     "worldview-gateway",
     "worldview-identity",
     "worldview-moderation",
@@ -2044,6 +2045,23 @@ requires-dist = [
 name = "worldview-catalog"
 version = "0.1.0"
 source = { editable = "apps/catalog" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "worldview" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "worldview", editable = "packages/worldview" },
+]
+
+[[package]]
+name = "worldview-creators"
+version = "0.1.0"
+source = { editable = "apps/creators" }
 dependencies = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
