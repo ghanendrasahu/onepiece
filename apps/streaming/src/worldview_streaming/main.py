@@ -11,7 +11,7 @@ from worldview.observability import init_observability, instrument_app
 from worldview.request_id import RequestIDMiddleware
 
 from . import models  # noqa: F401 - register tables
-from .routers import streams
+from .routers import streams, ws
 
 log = setup_logging("streaming", get_settings().log_level)
 
@@ -29,6 +29,7 @@ def create_app() -> FastAPI:
     instrument_app(app, "streaming")
     app.include_router(health_router)
     app.include_router(streams.router)
+    app.include_router(ws.router)
     return app
 
 

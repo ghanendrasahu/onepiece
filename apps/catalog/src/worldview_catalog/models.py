@@ -56,3 +56,40 @@ class Hotspot(Base):
     kind: Mapped[str] = mapped_column(String(20), default="info")  # info|photo|quiz|audio
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class TravelList(Base):
+    __tablename__ = "travel_lists"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(26), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Bookmark(Base):
+    __tablename__ = "bookmarks"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(26), index=True)
+    tour_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    poi_id: Mapped[str | None] = mapped_column(String(26), nullable=True, index=True)
+    list_id: Mapped[str | None] = mapped_column(String(26), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Capture(Base):
+    """VR photo (still) or memory clip recorded from a tour viewport."""
+
+    __tablename__ = "captures"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(26), index=True)
+    tour_id: Mapped[str] = mapped_column(String(26), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="vr_photo")  # vr_photo|memory_clip
+    url: Mapped[str] = mapped_column(String(500))
+    t_begin: Mapped[float] = mapped_column(Numeric(10, 3), default=0)
+    t_end: Mapped[float | None] = mapped_column(Numeric(10, 3), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

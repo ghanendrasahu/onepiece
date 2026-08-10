@@ -17,9 +17,17 @@ from worldview.auth import (
 )
 from worldview.db import get_db
 
+from ..models import MfaDevice, User
 from ..models import Session as SessionRow
-from ..models import User
-from ..schemas import LoginIn, RefreshIn, RegisterIn, TokenOut
+from ..schemas import (
+    LoginIn,
+    MfaEnrollOut,
+    MfaVerifyIn,
+    MfaVerifyOut,
+    RefreshIn,
+    RegisterIn,
+    TokenOut,
+)
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -103,6 +111,54 @@ def refresh(payload: RefreshIn, db: Session = Depends(get_db)) -> TokenOut:
     access = create_access_token(user.id, scopes=["user"], session_id=row.id)
     db.flush()
     return TokenOut(access_token=access, refresh_token=new_raw, user_id=user.id)
+
+
+@router.post("/mfa/enroll", response_model=MfaEnrollOut)
+def enroll_mfa(
+    current: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MfaEnrollOut:
+    """Generate a TOTP secret; the user must verify it once via /mfa/verify."""
+    import pyotp
+
+    device = (
+        db.execute(select(MfaDevice).where(MfaDevice.user_id == current["sub"])).scalars().first()
+    )
+    secret = pyotp.random_base32()
+    if device is None:
+        device = MfaDevice(id=str(new_ulid()), user_id=current["sub"], secret=secret)
+        db.add(device)
+    else:
+        device.secret = secret
+        device.is_active = False
+    db.flush()
+    totp = pyotp.TOTP(secret)
+    return MfaEnrollOut(
+        secret=secret,
+        otpauth_url=totp.provisioning_uri(name=current["sub"], issuer_name="WorldView VR"),
+        verified=device.is_active,
+    )
+
+
+@router.post("/mfa/verify", response_model=MfaVerifyOut)
+def verify_mfa(
+    code: MfaVerifyIn,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MfaVerifyOut:
+    import pyotp
+
+    device = (
+        db.execute(select(MfaDevice).where(MfaDevice.user_id == claims["sub"])).scalars().first()
+    )
+    if device is None:
+        raise HTTPException(status_code=404, detail="MFA not enrolled")
+    if not pyotp.TOTP(device.secret).verify(code.code):
+        raise HTTPException(status_code=401, detail="Invalid code")
+    device.is_active = True
+    device.activated_at = datetime.now(UTC)
+    db.flush()
+    return MfaVerifyOut(verified=True)
 
 
 @router.post("/logout")

@@ -1,5 +1,6 @@
 """Streaming routes: lifecycle CRUD + transitions."""
 
+import asyncio
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from worldview.auth import get_current_user
 from worldview.db import get_db
 
 from ..models import StreamSession
+from ..realtime import utc_iso
 from ..schemas import CreateStreamIn, ManifestOut, StreamOut
 from ..state_machine import InvalidTransition, Transition
 
@@ -130,3 +132,37 @@ def _apply(db: Session, session_row: StreamSession, target: str, **fields) -> No
         setattr(session_row, key, value)
     session_row.status = target
     session_row.version += 1
+    _publish_tour_event(session_row)
+
+
+def _publish_tour_event(session_row: StreamSession) -> None:
+    """Emit a lifecycle event to WS subscribers on /v1/streams/{id}/events."""
+    from ..realtime import get_room_hub
+
+    hub = get_room_hub()
+    event = {
+        "type": "stream.event",
+        "stream_id": session_row.id,
+        "tour_id": session_row.tour_id,
+        "status": session_row.status,
+        "version": session_row.version,
+        "ts": utc_iso(),
+    }
+    room = f"stream:{session_row.id}"
+    loop = _current_loop()
+    if loop is None:
+        asyncio.run(_emit(hub, room, session_row.id, event))
+    else:
+        loop.create_task(_emit(hub, room, session_row.id, event))
+
+
+def _current_loop():
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+async def _emit(hub, room: str, stream_id: str, event: dict) -> None:
+    await hub.publish_tour_event(stream_id, event)
+    await hub.publish(room, event)

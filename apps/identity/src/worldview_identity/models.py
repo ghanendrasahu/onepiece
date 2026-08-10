@@ -24,6 +24,35 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MfaDevice(Base):
+    """TOTP authenticator enrolled by the user (standard backup/QR flow)."""
+
+    __tablename__ = "mfa_devices"
+
+    id: Mapped[str] = mapped_column(String(26), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    secret: Mapped[str] = mapped_column(String(64))
+    kind: Mapped[str] = mapped_column(String(20), default="totp")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ConsentRecord(Base):
+    """GDPR consent registry: every purpose acceptance with provenance."""
+
+    __tablename__ = "consent_records"
+
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    policy_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(300), nullable=True)
 
 
 class Session(Base):

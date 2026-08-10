@@ -10,7 +10,7 @@ from worldview.observability import init_observability, instrument_app
 from worldview.request_id import RequestIDMiddleware
 
 from . import models  # noqa: F401 - register tables
-from .routers import tours
+from .routers import tours, travel
 
 log = setup_logging("catalog", get_settings().log_level)
 
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
     instrument_app(app, "catalog")
     app.include_router(health_router)
     app.include_router(tours.router)
+    app.include_router(travel.router)
     return app
 
 

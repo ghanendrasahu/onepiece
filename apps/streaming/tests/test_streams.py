@@ -13,6 +13,7 @@ def client(tmp_path, monkeypatch):
     url = test_database_url(tmp_path)
     monkeypatch.setenv("DATABASE_URL", url)
     monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.setenv("REDIS_URL", "")
     from worldview.config import reset_settings
 
     reset_settings()
@@ -63,6 +64,7 @@ def _open_client(tmp_path, monkeypatch):
     url = test_database_url(tmp_path)
     monkeypatch.setenv("DATABASE_URL", url)
     monkeypatch.setenv("JWT_SECRET", "test-secret")
+    monkeypatch.setenv("REDIS_URL", "")
     from worldview.config import reset_settings
 
     reset_settings()
