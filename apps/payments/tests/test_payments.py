@@ -137,3 +137,29 @@ def test_stripe_webhook_acknowledged(client):
     r = client.post("/v1/webhooks/stripe", json=event)
     assert r.status_code == 200
     assert r.json() == {"received": True}
+
+
+def test_apple_webhook_acknowledged(client):
+    r = client.post("/v1/webhooks/apple", json={"notificationType": "SUBSCRIBED"})
+    assert r.status_code == 200
+    assert r.json() == {"received": True}
+    assert client.post("/v1/webhooks/apple", json={}).status_code == 400
+
+
+def test_google_webhook_acknowledged(client):
+    import base64
+
+    data = base64.urlsafe_b64encode(b'{"version":"1.0"}').decode()
+    r = client.post("/v1/webhooks/google", json={"message": {"data": data}})
+    assert r.status_code == 200
+    assert r.json() == {"received": True}
+    assert client.post("/v1/webhooks/google", json={"message": {}}).status_code == 400
+
+
+def test_adyen_webhook_acknowledged(client):
+    r = client.post(
+        "/v1/webhooks/adyen", json={"companyAccount": "worldview", "eventCode": "AUTHORISATION"}
+    )
+    assert r.status_code == 200
+    assert r.json() == {"received": True}
+    assert client.post("/v1/webhooks/adyen", json={}).status_code == 400

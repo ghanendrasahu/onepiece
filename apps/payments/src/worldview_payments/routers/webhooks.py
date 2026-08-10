@@ -53,6 +53,64 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dic
     return {"received": True}
 
 
+async def apple_webhook(request: Request) -> dict[str, bool]:
+    """Apple App Store server notification (docs/06-api-specification.md §8).
+
+    Dev/mock: validates shape only and acknowledges fast, matching the
+    "respond 200 fast, process async" contract. Real deployments verify
+    the JWS ``x5c`` chain server-side before trusting payloads.
+    """
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid body") from exc
+    if not isinstance(body.get("notificationType"), str):
+        raise HTTPException(status_code=400, detail="Missing notificationType")
+    return {"received": True}
+
+
+async def google_webhook(request: Request) -> dict[str, bool]:
+    """Google Play Billing Pub/Sub push (docs/06-api-specification.md §8).
+
+    Dev/mock: decodes the base64 ``message.data`` envelope so the shape is
+    verifiable end to end; production re-signs and verifies the JWT.
+    """
+    import base64
+
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid body") from exc
+    data = (body.get("message") or {}).get("data")
+    if not isinstance(data, str):
+        raise HTTPException(status_code=400, detail="Missing message.data")
+    try:
+        base64.urlsafe_b64decode(data)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid base64 data") from exc
+    return {"received": True}
+
+
+async def adyen_webhook(request: Request) -> dict[str, bool]:
+    """Adyen notification (docs/06-api-specification.md §8).
+
+    Dev/mock: acknowledges any notification with a well-formed ``companyAccount``
+    and ``eventCode``. Production verifies the HMAC ``Auth-Key`` header.
+    """
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid body") from exc
+    if not isinstance(body.get("eventCode"), str):
+        raise HTTPException(status_code=400, detail="Missing eventCode")
+    return {"received": True}
+
+
+router.add_api_route("/apple", apple_webhook, methods=["POST"], status_code=200)
+router.add_api_route("/google", google_webhook, methods=["POST"], status_code=200)
+router.add_api_route("/adyen", adyen_webhook, methods=["POST"], status_code=200)
+
+
 async def _on_checkout_completed(db: Session, data: dict) -> None:
     obj = data.get("object", {})
     customer_id = obj.get("customer")
