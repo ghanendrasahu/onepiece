@@ -142,3 +142,38 @@ def test_stream_lifecycle_emits_events(client):
         assert event["type"] == "stream.state"
         assert event["status"] == "live"
         assert "viewers" in event  # doc 06 §7 stream.state payload
+
+
+def test_multiplexed_socket_join_and_chat(client):
+    with client.websocket_connect(f"/v1/ws?access_token={_token()}") as ws:
+        ws.send_json({"type": "room.join", "room_id": "tour-mx-1"})
+        frames = {"presence.sync", "chat.history", "conn.ready"}
+        seen = set()
+        for _ in range(len(frames)):
+            seen.add(ws.receive_json()["type"])
+        assert frames <= seen
+
+        ws.send_json({"type": "chat.send", "body": "hello mv"})
+        msg = _drain(ws, "chat.msg")
+        assert msg is not None and msg["body"] == "hello mv"
+
+        ws.send_json({"type": "voice.state", "enabled": True, "speaking": False})
+        voice = _drain(ws, "voice.state")
+        assert voice is not None and voice["enabled"] is True
+
+
+def test_multiplexed_socket_room_leave_stops_fanout(client):
+    with client.websocket_connect(f"/v1/ws?access_token={_token()}") as ws:
+        ws.send_json({"type": "room.join", "room_id": "tour-mx-2"})
+        _drain(ws, "conn.ready")
+
+        ws.send_json({"type": "room.leave"})
+        ws.send_json({"type": "chat.send", "body": "should vanish"})
+        assert ws.receive_json()["type"] != "chat.msg"  # not in a room anymore
+
+
+def test_multiplexed_socket_rejects_unauthed(client):
+    with client.websocket_connect("/v1/ws") as ws:
+        frame = ws.receive_json()
+        assert frame["type"] == "error"
+        assert frame["detail"] == "authentication required"

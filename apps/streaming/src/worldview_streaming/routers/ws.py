@@ -68,16 +68,36 @@ async def _relay_loop(
 ) -> None:
     """Race inbound client frames against hub fan-out and echo hub frames out."""
     recv = hub.next_frame(room, conn_id)
+    await _relay_multi(websocket, hub, [room], conn_id, on_frame, [recv])
+
+
+async def _relay_multi(
+    websocket: WebSocket,
+    hub: RoomHub,
+    rooms: list[str],
+    conn_id: str,
+    on_frame: Callable[[dict[str, Any]], Awaitable[None]],
+    recv: list[Callable[[], Any]],
+) -> None:
+    """Like :func:`_relay_loop` but fan-in from several rooms at once.
+
+    Used by the multiplexed ``/v1/ws`` socket where a single connection may
+    join and leave multiple rooms over its lifetime. ``rooms`` and ``recv``
+    are mutated in place by the caller when joining/leaving rooms.
+    """
     inbound: asyncio.Task | None = None
-    outbound: asyncio.Task | None = None
+    outbound: dict[int, asyncio.Task] = {}
 
     while True:
         if inbound is None or inbound.done():
             inbound = asyncio.create_task(websocket.receive_text())
-        if outbound is None or outbound.done():
-            outbound = asyncio.create_task(recv())
+        for index, room_recv in enumerate(recv):
+            task = outbound.get(index)
+            if task is None or task.done():
+                outbound[index] = asyncio.create_task(room_recv())
 
-        done, _ = await asyncio.wait({inbound, outbound}, return_when=asyncio.FIRST_COMPLETED)
+        pending = {inbound, *outbound.values()}
+        done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
 
         if inbound in done:
             try:
@@ -86,9 +106,11 @@ async def _relay_loop(
                 data = None
             frame = json.loads(data) if data else {}
             await on_frame(frame)
-        if outbound in done:
+        for task in list(outbound.values()):
+            if task not in done:
+                continue
             try:
-                payload = outbound.result()
+                payload = task.result()
             except (ValueError, TypeError):
                 payload = None
             if payload is not None:
@@ -96,6 +118,102 @@ async def _relay_loop(
                     await websocket.send_json(json.loads(payload))
                 except (ValueError, TypeError):
                     pass
+
+
+@router.websocket("/ws")
+async def multiplexed_socket(websocket: WebSocket) -> None:
+    """Single authenticated socket multiplexing rooms via ``room.join/leave``.
+
+    Protocol (docs/06-api-specification.md §7):
+    - ``{"type": "room.join", "room_id", "tour_id"?}`` joins (or moves) the
+      connection into a room and pushes ``presence.sync`` + ``chat.history``.
+    - ``{"type": "room.leave"}`` leaves the current room.
+    - ``chat.send``, ``chat.reaction``, ``watch.sync``, ``room.kick`` and
+      ``voice.state`` behave exactly as on the per-tour socket.
+    """
+    await websocket.accept()
+    try:
+        claims = _claims_from_ws(websocket)
+    except PermissionError:
+        await websocket.send_json({"type": "error", "detail": "authentication required"})
+        await websocket.close(code=4401)
+        return
+
+    hub = get_room_hub()
+    conn_id = str(new_ulid())
+    meta = {
+        "conn_id": conn_id,
+        "user_id": claims["sub"],
+        "display_name": claims.get("display_name", "explorer"),
+    }
+    rooms: list[str] = []
+    recv: list[Callable[[], Any]] = []
+    limiter = RateLimiter()
+
+    async def on_frame(frame: dict[str, Any]) -> None:
+        ftype = frame.get("type")
+        if ftype == "room.join":
+            room_id = frame.get("room_id") or frame.get("tour_id")
+            if not isinstance(room_id, str) or not room_id:
+                await websocket.send_json({"type": "error", "detail": "room_id required"})
+                return
+            room = room_id
+            if "tour_id" in frame and not room_id.startswith("tour:"):
+                room = f"tour:{room_id}"
+            if rooms:
+                await hub.leave(rooms[0], conn_id)
+                rooms.clear()
+                recv.clear()
+            rooms.append(room)
+            await hub.join(room, conn_id, meta)
+            recv.append(hub.next_frame(room, conn_id))
+            await _send_joined(websocket, hub, room, conn_id, claims)
+            await _broadcast_presence(hub, room)
+        elif ftype == "room.leave":
+            if rooms:
+                await hub.leave(rooms[0], conn_id)
+                rooms.clear()
+                recv.clear()
+        elif ftype == "chat.send":
+            if rooms:
+                await _on_chat_send(hub, rooms[0], conn_id, meta, frame, limiter)
+        elif ftype == "chat.reaction":
+            if rooms:
+                await _on_chat_reaction(hub, rooms[0], frame)
+        elif ftype == "watch.sync":
+            if rooms:
+                await _on_watch_sync(hub, rooms[0], frame)
+        elif ftype == "room.kick":
+            if rooms:
+                await _on_room_kick(hub, rooms[0], claims, frame)
+        elif ftype == "voice.state":
+            if rooms:
+                await _on_voice_state(hub, rooms[0], frame)
+
+    try:
+        await _relay_multi(websocket, hub, rooms, conn_id, on_frame, recv)
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        for room in rooms:
+            await hub.leave(room, conn_id)
+
+
+async def _on_voice_state(hub: RoomHub, room: str, frame: dict[str, Any]) -> None:
+    for key in ("enabled", "speaking"):
+        value = frame.get(key)
+        if not isinstance(value, bool):
+            return
+    await hub.publish(
+        room,
+        {
+            "type": "voice.state",
+            "room": room,
+            "user_id": frame.get("user_id"),
+            "enabled": frame["enabled"],
+            "speaking": frame["speaking"],
+        },
+    )
 
 
 @router.websocket("/tours/{tour_id}/chat")
