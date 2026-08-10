@@ -62,7 +62,9 @@ def _seed_tip(db, tip_id: str, creator_id: str, cents: int):
     )
 
 
-def _seed_payout(db, payout_id: str, creator_id: str, cents: int, status: str = "pending"):
+def _seed_payout(
+    db, payout_id: str, creator_id: str, cents: int, status: str = "pending", **kwargs
+):
     from worldview_creators.models import Payout
 
     db.add(
@@ -72,6 +74,7 @@ def _seed_payout(db, payout_id: str, creator_id: str, cents: int, status: str = 
             amount_cents=cents,
             currency="USD",
             status=status,
+            **kwargs,
         )
     )
 
@@ -188,12 +191,28 @@ def test_equipment_loan_request(client):
 
 
 def test_payouts_list(client):
+    from datetime import UTC, datetime
+
     from worldview.db import get_session_factory
 
     creator = str(new_ulid())
     with get_session_factory()() as db:
-        _seed_payout(db, "p-1", creator, 500, status="paid")
-        _seed_payout(db, "p-2", creator, 300, status="pending")
+        _seed_payout(
+            db,
+            "p-1",
+            creator,
+            500,
+            status="paid",
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        _seed_payout(
+            db,
+            "p-2",
+            creator,
+            300,
+            status="pending",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
         db.commit()
 
     client.post(

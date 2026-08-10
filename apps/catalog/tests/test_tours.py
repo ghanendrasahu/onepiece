@@ -134,6 +134,7 @@ def test_get_poi(client):
     )
     sess = next(_session())
     sess.add(tour)
+    sess.flush()
     poi = Poi(
         id=str(new_ulid()),
         tour_id=tour.id,
@@ -203,6 +204,7 @@ def test_hotspots_filtered_by_t(client):
     )
     sess = next(_session())
     sess.add(tour)
+    sess.flush()
     poi_late = Poi(
         id=str(new_ulid()),
         tour_id=tour.id,
