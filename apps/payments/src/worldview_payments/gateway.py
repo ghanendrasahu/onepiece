@@ -52,7 +52,7 @@ class StripeGateway:
         self, plan_id: str, customer_id: str, success_url: str | None
     ) -> CheckoutResult:
         _check_import("stripe")
-        import stripe
+        import stripe  # pyright: ignore[reportMissingImports]  # optional SDK, guarded above
 
         stripe.api_key = self._api_key
         session = stripe.checkout.Session.create(

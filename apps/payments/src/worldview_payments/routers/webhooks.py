@@ -47,7 +47,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)) -> dic
         return {"received": True}  # acknowledge unhandled event types
 
     if settings.stripe_webhook_secret:
-        _verify_signature(raw_body, signature, settings.stripe_webhook_secret)
+        _verify_signature(raw_body, signature or "", settings.stripe_webhook_secret)
 
     asyncio.get_running_loop().create_task(handler(db, payload.get("data", {})))
     return {"received": True}

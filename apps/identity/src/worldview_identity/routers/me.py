@@ -1,10 +1,11 @@
 """Authenticated user routes: profile, sessions, consent registry, GDPR."""
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.orm import Session
 from worldview.auth import get_current_user
 from worldview.db import get_db
@@ -105,14 +106,17 @@ def revoke_device(
     from sqlalchemy import update
 
     now = datetime.now(UTC)
-    result = db.execute(
-        update(SessionRow)
-        .where(
-            SessionRow.user_id == claims["sub"],
-            SessionRow.device_id == device_id,
-            SessionRow.revoked_at.is_(None),
-        )
-        .values(revoked_at=now)
+    result = cast(
+        CursorResult[Any],
+        db.execute(
+            update(SessionRow)
+            .where(
+                SessionRow.user_id == claims["sub"],
+                SessionRow.device_id == device_id,
+                SessionRow.revoked_at.is_(None),
+            )
+            .values(revoked_at=now)
+        ),
     )
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Device not found")

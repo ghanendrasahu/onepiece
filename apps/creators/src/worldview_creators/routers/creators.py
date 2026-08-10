@@ -127,13 +127,12 @@ def dashboard(
         .select_from(PrivateTourOffer)
         .where(PrivateTourOffer.creator_id == claims["sub"])
     )
-    loan_requested = (
+    loan_requested = bool(
         db.scalar(
             select(func.count())
             .select_from(EquipmentLoan)
             .where(EquipmentLoan.user_id == claims["sub"])
         )
-        > 0
     )
 
     return DashboardOut(

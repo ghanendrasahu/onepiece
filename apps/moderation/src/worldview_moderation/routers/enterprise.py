@@ -110,18 +110,18 @@ def enterprise_reports(
     db: Session = Depends(get_db),
 ) -> list[EnterpriseGroupReport]:
     """Engagement per group: member + event counts (FR-10.2)."""
-    member_counts = dict(
-        db.execute(
-            select(EnterpriseGroupMember.group_id, func.count()).group_by(
-                EnterpriseGroupMember.group_id
-            )
-        ).all()
-    )
-    event_counts = dict(
-        db.execute(
-            select(EnterpriseEvent.group_id, func.count()).group_by(EnterpriseEvent.group_id)
-        ).all()
-    )
+    member_counts: dict[str, int] = {}
+    for row in db.execute(
+        select(EnterpriseGroupMember.group_id, func.count()).group_by(
+            EnterpriseGroupMember.group_id
+        )
+    ).all():
+        member_counts[row[0]] = row[1]
+    event_counts: dict[str, int] = {}
+    for row in db.execute(
+        select(EnterpriseEvent.group_id, func.count()).group_by(EnterpriseEvent.group_id)
+    ).all():
+        event_counts[row[0]] = row[1]
     groups = db.execute(
         select(EnterpriseGroup).order_by(EnterpriseGroup.created_at.desc()).limit(500)
     ).scalars()

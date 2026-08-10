@@ -1,0 +1,23 @@
+{
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "apps/ai_guide/src",
+    "apps/catalog/src",
+    "apps/creators/src",
+    "apps/gateway/src",
+    "apps/identity/src",
+    "apps/moderation/src",
+    "apps/notifications/src",
+    "apps/payments/src",
+    "apps/streaming/src",
+    "packages/worldview/src"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "**/.venv",
+    "data"
+  ]
+}
