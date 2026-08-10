@@ -131,3 +131,34 @@ def test_ask_degrades_when_model_gateway_down():
     answer, provider_name = asyncio.run(run())
     assert provider_name == "MockProvider"
     assert "Shibuya Crossing" in answer.answer
+
+
+def test_identify_grounds_on_active_poi(client):
+    r = client.post(
+        "/v1/guide/identify",
+        json={"tour_id": "tour-tokyo", "t": 120, "lang": "en"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["label"] == "Tokyo Tower"
+    assert body["kind"] == "landmark"
+    assert body["poi_id"] == "poi-tokyo-tower"
+    assert body["provider"] == "MockProvider"
+
+
+def test_identify_unknown_when_no_tour(client):
+    r = client.post(
+        "/v1/guide/identify",
+        json={"tour_id": None, "t": 10, "lang": "en"},
+    )
+    assert r.status_code == 200
+    assert r.json()["kind"] == "unknown"
+
+
+def test_itinerary_packs_preferred_pois(client):
+    r = client.get("/v1/guide/itinerary?duration_hours=3")
+    body = r.json()
+    assert r.status_code == 200
+    assert len(body["stops"]) > 0
+    assert all(s["stop_minutes"] > 0 for s in body["stops"])
+    assert body["total_hours"] <= 3
