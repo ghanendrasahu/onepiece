@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth.router)
     app.include_router(me.router)
+    app.include_router(me.gdpr_router)
 
     log.info("identity service booted", extra={"region": settings.region_key})
     return app

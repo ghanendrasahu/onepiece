@@ -100,3 +100,14 @@ def test_gdpr_export_and_delete(client):
     assert me.status_code == 200
     assert me.json()["email"].endswith("deleted.worldview.vr")
     assert me.json()["display_name"] == "[deleted account]"
+
+
+def test_gdpr_top_level_aliases(client):
+    headers = _register(client)
+    exported = client.post("/v1/gdpr/export", headers=headers)
+    assert exported.status_code == 200
+    assert exported.json()["status"] == "ready"
+
+    deleted = client.post("/v1/gdpr/delete", headers=headers)
+    assert deleted.status_code == 200
+    assert deleted.json()["status"] == "completed"

@@ -26,6 +26,7 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/v1/users/me", tags=["me"])
+gdpr_router = APIRouter(prefix="/v1/gdpr", tags=["gdpr"])
 
 _DELETED_EMAIL_DOMAIN = "deleted.worldview.vr"
 
@@ -239,3 +240,21 @@ def gdpr_delete(
     for consent in consents:
         db.delete(consent)
     return GdprDeleteOut(job_id=f"delete-{user.id}", status="completed")
+
+
+@gdpr_router.post("/export", response_model=GdprExportOut)
+def gdpr_export_top_level(
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GdprExportOut:
+    """Top-level alias for ``/v1/gdpr/export`` (docs/06 §1)."""
+    return gdpr_export(claims, db)
+
+
+@gdpr_router.post("/delete", response_model=GdprDeleteOut)
+def gdpr_delete_top_level(
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GdprDeleteOut:
+    """Top-level alias for ``/v1/gdpr/delete`` (docs/06 §1)."""
+    return gdpr_delete(claims, db)

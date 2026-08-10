@@ -161,3 +161,60 @@ def test_nearby_radius(client):
     titles = [t["title_en"] for t in r.json()]
     assert "Eiffel Tower" in titles
     assert "Far Away" not in titles
+
+
+def test_tours_geo_filter(client):
+    _seed_tour(client)
+    _seed_tour(client, title_en="Far Away", latitude=60.0, longitude=2.0)
+    r = client.get("/v1/tours", params={"geo": "48.85,2.29,50"})
+    titles = [t["title_en"] for t in r.json()["items"]]
+    assert "Eiffel Tower" in titles
+    assert "Far Away" not in titles
+
+
+def test_tours_geo_invalid(client):
+    r = client.get("/v1/tours", params={"geo": "not-a-valid-triple"})
+    assert r.status_code == 422
+
+
+def test_tours_sort_by_price(client):
+    _seed_tour(client, title_en="Cheap", price_cents=500, is_free=False)
+    _seed_tour(client, title_en="Pricy", price_cents=9900, is_free=False)
+    r = client.get("/v1/tours", params={"sort": "price_asc"})
+    titles = [t["title_en"] for t in r.json()["items"]]
+    assert titles == ["Cheap", "Pricy"]
+
+
+def test_hotspots_filtered_by_t(client):
+    from ulid import new as new_ulid
+    from worldview_catalog.models import Hotspot, Poi, Tour
+
+    tour = Tour(
+        **{
+            "id": str(new_ulid()),
+            "title_en": "T Tour",
+            "kind": "vod",
+            "status": "published",
+            "latitude": 48.85,
+            "longitude": 2.29,
+            "region_key": "eu-west-1",
+            "is_free": True,
+        }
+    )
+    sess = next(_session())
+    sess.add(tour)
+    poi_late = Poi(
+        id=str(new_ulid()),
+        tour_id=tour.id,
+        name_en="Late POI",
+        t_begin_sec=120.0,
+        look_dir={"yaw": 0.0, "pitch": 0.0},
+        poi_type="street",
+    )
+    sess.add(poi_late)
+    sess.commit()
+    sess.add(Hotspot(id=str(new_ulid()), poi_id=poi_late.id, kind="audio", payload={}))
+    sess.commit()
+
+    assert client.get(f"/v1/tours/{tour.id}/hotspots?t=50").json() == []
+    assert len(client.get(f"/v1/tours/{tour.id}/hotspots?t=200").json()) == 1
