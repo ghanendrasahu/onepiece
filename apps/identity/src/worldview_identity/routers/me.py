@@ -235,7 +235,7 @@ def gdpr_delete(
         session_row.revoked_at = now
 
     user.email = f"{user.id}@{_DELETED_EMAIL_DOMAIN}"
-    user.password_hash = ""
+    user.password_hash = ""  # nosec B105  # GDPR erasure clears the stored hash
     user.display_name = "[deleted account]"
     user.deleted_at = now
     db.flush()
