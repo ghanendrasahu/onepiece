@@ -1,5 +1,7 @@
 """Payments schemas (docs/06-api-specification.md §8)."""
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 from worldview.schemas import OrmModel
 
@@ -34,7 +36,7 @@ class SubscriptionOut(OrmModel):
     plan_id: str
     status: str
     provider: str
-    current_period_end: str
+    current_period_end: datetime
 
 
 class InvoiceOut(BaseModel):

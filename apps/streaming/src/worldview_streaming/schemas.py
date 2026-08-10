@@ -39,3 +39,12 @@ class ManifestOut(BaseModel):
     status: str
     container: str = "hls"
     renditions: list[Rendition]
+
+
+class StreamReportIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=100)
+    context: str | None = Field(default=None, max_length=500)
+
+
+class StreamReportAccepted(BaseModel):
+    report_id: str

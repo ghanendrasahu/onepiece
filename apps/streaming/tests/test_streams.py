@@ -109,3 +109,39 @@ def test_manifest_only_available_when_live(client):
     assert first["manifest_url"] == f"/v1/streams/{stream_id}/renditions/720p/index.m3u8"
     r1080 = next(r for r in body["renditions"] if r["quality"] == "1080p")
     assert (r1080["width"], r1080["height"]) == (1920, 1080)
+
+
+def test_stream_report_forwards_to_moderation(client, monkeypatch):
+    stream_id = client.post("/v1/streams", json={}, headers=_auth_headers()).json()["id"]
+
+    monkeypatch.setattr(
+        "worldview_streaming.moderation_client.submit_report",
+        lambda stream_id, reporter_id, reason, context: "mod-item-1",
+    )
+    r = client.post(
+        f"/v1/streams/{stream_id}/report",
+        json={"reason": "spam"},
+        headers=_auth_headers(),
+    )
+    assert r.status_code == 200
+    assert r.json()["report_id"] == "mod-item-1"
+
+
+def test_stream_report_503_when_moderation_down(client, monkeypatch):
+    stream_id = client.post("/v1/streams", json={}, headers=_auth_headers()).json()["id"]
+
+    monkeypatch.setattr(
+        "worldview_streaming.moderation_client.submit_report",
+        lambda stream_id, reporter_id, reason, context: None,
+    )
+    r = client.post(
+        f"/v1/streams/{stream_id}/report",
+        json={"reason": "spam"},
+        headers=_auth_headers(),
+    )
+    assert r.status_code == 503
+
+
+def test_stream_report_404_for_missing_stream(client, monkeypatch):
+    r = client.post("/v1/streams/nonexistent/report", json={}, headers=_auth_headers())
+    assert r.status_code == 404

@@ -85,6 +85,13 @@ class Settings(BaseSettings):
         default="http://localhost:8002", validation_alias="CATALOG_SERVICE_URL"
     )
 
+    # --- moderation (streaming -> moderation) ---
+    # Leave unset in dev: report forwarding degrades with a clean 503 instead
+    # of silently dropping user reports.
+    moderation_service_url: str | None = Field(
+        default=None, validation_alias="MODERATION_SERVICE_URL"
+    )
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: Any) -> Any:

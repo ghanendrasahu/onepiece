@@ -10,6 +10,7 @@ import os
 # Import every service's models so their tables are registered on the shared metadata.
 import worldview_catalog.models  # noqa: F401
 import worldview_identity.models  # noqa: F401
+import worldview_moderation.models  # noqa: F401
 import worldview_payments.models  # noqa: F401
 import worldview_streaming.models  # noqa: F401
 from alembic import context

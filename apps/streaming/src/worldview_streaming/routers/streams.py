@@ -12,7 +12,7 @@ from worldview.db import get_db
 
 from ..models import StreamSession
 from ..realtime import utc_iso
-from ..schemas import CreateStreamIn, ManifestOut, StreamOut
+from ..schemas import CreateStreamIn, ManifestOut, StreamOut, StreamReportAccepted, StreamReportIn
 from ..state_machine import InvalidTransition, Transition
 
 router = APIRouter(prefix="/v1/streams", tags=["streams"])
@@ -61,6 +61,28 @@ def get_manifest(stream_id: str, db: Session = Depends(get_db)) -> ManifestOut:
 @router.get("/{stream_id}", response_model=StreamOut)
 def get_stream(stream_id: str, db: Session = Depends(get_db)) -> StreamSession:
     return _get_or_404(stream_id, db)
+
+
+@router.post("/{stream_id}/report", response_model=StreamReportAccepted)
+def report_stream(
+    stream_id: str,
+    payload: StreamReportIn,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamReportAccepted:
+    """Forward a viewer report about this stream to the moderation service."""
+    _get_or_404(stream_id, db)
+    from ..moderation_client import submit_report
+
+    report_id = submit_report(
+        stream_id=stream_id,
+        reporter_id=claims["sub"],
+        reason=payload.reason,
+        context=payload.context,
+    )
+    if report_id is None:
+        raise HTTPException(status_code=503, detail="Moderation service unavailable")
+    return StreamReportAccepted(report_id=report_id)
 
 
 @router.post("/{stream_id}/start", response_model=StreamOut)

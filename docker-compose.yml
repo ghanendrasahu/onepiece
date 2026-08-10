@@ -61,7 +61,7 @@ services:
       timeout: 5s
       retries: 3
 
-  streaming:
+streaming:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.service
@@ -74,6 +74,7 @@ services:
       DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
       REDIS_URL: redis://redis:6379/0
+      MODERATION_SERVICE_URL: http://moderation:8006
     ports: ["8003:8003"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -107,6 +108,29 @@ services:
       migrate: {condition: service_completed_successfully}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8005/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+moderation:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: moderation
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8006
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+    ports: ["8006:8006"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8006/healthz').status==200 else 1)"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -150,10 +174,11 @@ services:
       IDENTITY_UPSTREAM: http://identity:8001
       CATALOG_UPSTREAM: http://catalog:8002
       STREAMING_UPSTREAM: http://streaming:8003
-      AI_GUIDE_UPSTREAM: http://ai_guide:8004
+AI_GUIDE_UPSTREAM: http://ai_guide:8004
       PAYMENTS_UPSTREAM: http://payments:8005
+      MODERATION_UPSTREAM: http://moderation:8006
     ports: ["8000:8000"]
-    depends_on: [identity, catalog, streaming, ai_guide, payments]
+    depends_on: [identity, catalog, streaming, ai_guide, payments, moderation]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)"]
       interval: 10s

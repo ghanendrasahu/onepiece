@@ -117,6 +117,25 @@ def get_current_user(
     return decode_access_token(credentials.credentials, settings)
 
 
+def require_scope(required: str):
+    """Return a FastAPI dependency that demands a JWT scope (e.g. ``admin``).
+
+    Keeps RBAC enforcement cheap and consistent: every guarded route resolves
+    the claims then checks membership of ``required`` in ``scopes``.
+    """
+
+    def _guarded(claims: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
+        scopes = set(claims.get("scopes") or [])
+        if required not in scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Requires scope: {required}",
+            )
+        return claims
+
+    return _guarded
+
+
 def generate_refresh_token() -> str:
     """Return a high-entropy opaque refresh token (only its hash is persisted)."""
     return secrets.token_urlsafe(64)

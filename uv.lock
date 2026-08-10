@@ -14,6 +14,7 @@ members = [
     "worldview-catalog",
     "worldview-gateway",
     "worldview-identity",
+    "worldview-moderation",
     "worldview-monorepo",
     "worldview-payments",
     "worldview-streaming",
@@ -2092,6 +2093,23 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "pyotp", specifier = ">=2.10.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "worldview", editable = "packages/worldview" },
+]
+
+[[package]]
+name = "worldview-moderation"
+version = "0.1.0"
+source = { editable = "apps/moderation" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "worldview" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
     { name = "worldview", editable = "packages/worldview" },
 ]
