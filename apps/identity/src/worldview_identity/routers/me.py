@@ -9,13 +9,18 @@ from sqlalchemy.orm import Session
 from worldview.auth import get_current_user
 from worldview.db import get_db
 
-from ..models import ConsentRecord, User
+from ..models import (
+    ConsentRecord,
+    User,
+)
 from ..models import Session as SessionRow
 from ..schemas import (
     ConsentIn,
     ConsentOut,
+    DeviceOut,
     GdprDeleteOut,
     GdprExportOut,
+    ProfilePatchIn,
     SessionOut,
     UserOut,
 )
@@ -36,6 +41,81 @@ def me(
 
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+
+@router.patch("", response_model=UserOut)
+def update_profile(
+    payload: ProfilePatchIn,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    """Update profile fields (docs/06-api-specification.md §3)."""
+    from fastapi import HTTPException
+
+    user = db.get(User, claims["sub"])
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if payload.display_name is not None:
+        user.display_name = payload.display_name
+    if payload.avatar is not None:
+        user.avatar_url = payload.avatar
+    if payload.accessibility is not None:
+        user.accessibility = payload.accessibility
+    if payload.locale is not None:
+        user.locale = payload.locale
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.get("/devices", response_model=list[DeviceOut])
+def list_devices(
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[DeviceOut]:
+    """Group the user's active sessions by device (docs/06 §3, FR-1.3)."""
+    rows = db.execute(
+        select(SessionRow)
+        .where(SessionRow.user_id == claims["sub"])
+        .order_by(SessionRow.created_at)
+    ).scalars()
+    by_device: dict[str, list[SessionRow]] = {}
+    for session_row in rows:
+        by_device.setdefault(session_row.device_id, []).append(session_row)
+    return [
+        DeviceOut(
+            device_id=device_id,
+            first_seen_at=sessions[0].created_at.isoformat(),
+            last_seen_at=sessions[-1].created_at.isoformat(),
+            sessions=len(sessions),
+        )
+        for device_id, sessions in by_device.items()
+    ]
+
+
+@router.delete("/devices/{device_id}", status_code=204)
+def revoke_device(
+    device_id: str,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Revoke every session on a device (docs/06 §3, FR-1.3)."""
+    from fastapi import HTTPException
+    from sqlalchemy import update
+
+    now = datetime.now(UTC)
+    result = db.execute(
+        update(SessionRow)
+        .where(
+            SessionRow.user_id == claims["sub"],
+            SessionRow.device_id == device_id,
+            SessionRow.revoked_at.is_(None),
+        )
+        .values(revoked_at=now)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Device not found")
+    db.commit()
 
 
 @router.get("/sessions", response_model=list[SessionOut])

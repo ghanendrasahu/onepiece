@@ -3,6 +3,7 @@
 import asyncio
 from datetime import UTC, datetime
 
+import worldview_payments.models as _payments_models  # noqa: F401  (register tables)
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,7 +13,16 @@ from worldview.db import get_db
 
 from ..models import StreamSession
 from ..realtime import utc_iso
-from ..schemas import CreateStreamIn, ManifestOut, StreamOut, StreamReportAccepted, StreamReportIn
+from ..schemas import (
+    CreateStreamIn,
+    ManifestOut,
+    StreamOut,
+    StreamReportAccepted,
+    StreamReportIn,
+    StreamStatsOut,
+    TipAccepted,
+    TipIn,
+)
 from ..state_machine import InvalidTransition, Transition
 
 router = APIRouter(prefix="/v1/streams", tags=["streams"])
@@ -83,6 +93,59 @@ def report_stream(
     if report_id is None:
         raise HTTPException(status_code=503, detail="Moderation service unavailable")
     return StreamReportAccepted(report_id=report_id)
+
+
+@router.post("/{stream_id}/tip", response_model=TipAccepted, status_code=201)
+def tip_stream(
+    stream_id: str,
+    payload: TipIn,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TipAccepted:
+    """Creator tip alias; forwards money to the payments service (docs/06 §5)."""
+    _get_or_404(stream_id, db)
+    from ..payments_client import submit_tip
+
+    body = submit_tip(
+        stream_id=stream_id,
+        user_id=claims["sub"],
+        cents=payload.cents,
+        message=payload.message,
+        idempotency_key=payload.idempotency_key,
+    )
+    if body is None:
+        raise HTTPException(status_code=503, detail="Payments service unavailable")
+    return TipAccepted(tip_id=body["id"])
+
+
+@router.get("/{stream_id}/stats", response_model=StreamStatsOut)
+def stream_stats(
+    stream_id: str,
+    claims: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> StreamStatsOut:
+    """Creator stats: live viewers + cumulative tips (docs/06 §5)."""
+    session_row = _get_or_404(stream_id, db)
+    if session_row.creator_id != claims["sub"]:
+        raise HTTPException(status_code=403, detail="Not the stream creator")
+
+    from sqlalchemy import func
+    from worldview_payments.models import Tip
+
+    room = f"stream:{stream_id}"
+    viewers = asyncio.run(_count_viewers(room))
+
+    tips_cents = db.scalar(
+        select(func.coalesce(func.sum(Tip.cents), 0)).where(Tip.stream_id == stream_id)
+    )
+    return StreamStatsOut(id=stream_id, viewers=viewers, tips_cents=tips_cents or 0)
+
+
+async def _count_viewers(room: str) -> int:
+    from ..realtime import get_room_hub
+
+    hub = get_room_hub()
+    return len(await hub.members(room))
 
 
 @router.post("/{stream_id}/start", response_model=StreamOut)

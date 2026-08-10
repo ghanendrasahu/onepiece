@@ -57,8 +57,24 @@ class UserOut(OrmModel):
     id: str
     email: EmailStr
     display_name: str
+    avatar_url: str | None
+    accessibility: dict
     locale: str
     is_verified: bool
+
+
+class ProfilePatchIn(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    avatar: str | None = Field(default=None, max_length=500)
+    accessibility: dict | None = None
+    locale: str | None = Field(default=None, max_length=10)
+
+
+class DeviceOut(BaseModel):
+    device_id: str
+    first_seen_at: str
+    last_seen_at: str
+    sessions: int
 
 
 class SessionOut(OrmModel):

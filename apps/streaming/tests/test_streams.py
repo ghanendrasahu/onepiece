@@ -145,3 +145,64 @@ def test_stream_report_503_when_moderation_down(client, monkeypatch):
 def test_stream_report_404_for_missing_stream(client, monkeypatch):
     r = client.post("/v1/streams/nonexistent/report", json={}, headers=_auth_headers())
     assert r.status_code == 404
+
+
+def test_stream_tip_forwards_to_payments(client, monkeypatch):
+    from worldview.auth import create_access_token
+
+    stream_id = client.post("/v1/streams", json={}, headers=_auth_headers()).json()["id"]
+    user = str(new_ulid())
+    headers = {"Authorization": f"Bearer {create_access_token(user, scopes=['user'])}"}
+
+    monkeypatch.setattr(
+        "worldview_streaming.payments_client.submit_tip",
+        lambda stream_id, user_id, cents, message, idempotency_key: {"id": "tip-mock-1"},
+    )
+    r = client.post(
+        f"/v1/streams/{stream_id}/tip",
+        json={"cents": 500, "message": "great"},
+        headers=headers,
+    )
+    assert r.status_code == 201
+    assert r.json()["tip_id"] == "tip-mock-1"
+
+
+def test_stream_tip_503_when_payments_down(client, monkeypatch):
+    stream_id = client.post("/v1/streams", json={}, headers=_auth_headers()).json()["id"]
+
+    monkeypatch.setattr(
+        "worldview_streaming.payments_client.submit_tip",
+        lambda stream_id, user_id, cents, message, idempotency_key: None,
+    )
+    r = client.post(f"/v1/streams/{stream_id}/tip", json={"cents": 100}, headers=_auth_headers())
+    assert r.status_code == 503
+
+
+def test_stream_stats_creator_only_and_aggregates(client, monkeypatch):
+    from worldview.auth import create_access_token
+
+    creator = str(new_ulid())
+    headers = {"Authorization": f"Bearer {create_access_token(creator, scopes=['user'])}"}
+    stream_id = client.post("/v1/streams", json={}, headers=headers).json()["id"]
+
+    monkeypatch.setattr(
+        "worldview_streaming.routers.streams._count_viewers",
+        lambda room: _awaitable_int(3),
+    )
+    r = client.get(f"/v1/streams/{stream_id}/stats", headers=headers)
+    assert r.status_code == 200
+    assert r.json()["viewers"] == 3
+    assert r.json()["tips_cents"] == 0
+
+    other = str(new_ulid())
+    other_headers = {"Authorization": f"Bearer {create_access_token(other, scopes=['user'])}"}
+    forbidden = client.get(f"/v1/streams/{stream_id}/stats", headers=other_headers)
+    assert forbidden.status_code == 403
+
+
+def _awaitable_int(value: int):
+
+    async def _inner():
+        return value
+
+    return _inner()

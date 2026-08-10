@@ -55,3 +55,45 @@ class AdminActionOut(OrmModel):
     target_id: str
     note: str | None
     created_at: datetime
+
+
+class EnterpriseGroupIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+
+class EnterpriseGroupOut(OrmModel):
+    id: str
+    name: str
+    owner_id: str
+    created_at: datetime
+
+
+class EnterpriseMembersIn(BaseModel):
+    user_ids: list[str] = Field(min_length=1, max_length=1000)
+
+
+class EnterpriseMemberOut(BaseModel):
+    group_id: str
+    user_id: str
+    created_at: datetime
+
+
+class EnterpriseEventIn(BaseModel):
+    group_id: str = Field(min_length=1, max_length=26)
+    title: str = Field(min_length=1, max_length=120)
+    starts_at: datetime
+
+
+class EnterpriseEventOut(OrmModel):
+    id: str
+    group_id: str
+    title: str
+    starts_at: datetime
+    created_at: datetime
+
+
+class EnterpriseGroupReport(BaseModel):
+    group_id: str
+    name: str
+    members: int
+    events: int

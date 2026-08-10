@@ -234,3 +234,54 @@ def test_admin_payouts_lists_ledger(client):
 
     filtered = client.get("/v1/admin/payouts?status=paid", headers=_auth(scopes=("admin",)))
     assert filtered.json() == []
+
+
+def test_enterprise_group_members_events_reports(client):
+    from datetime import UTC, datetime, timedelta
+
+    admin_headers = _auth(scopes=("admin",))
+    group = client.post(
+        "/v1/enterprise/groups", json={"name": "Tokyo High School"}, headers=admin_headers
+    )
+    assert group.status_code == 201
+    group_id = group.json()["id"]
+
+    members = client.post(
+        f"/v1/enterprise/groups/{group_id}/members",
+        json={"user_ids": [str(new_ulid()), str(new_ulid())]},
+        headers=admin_headers,
+    )
+    assert members.status_code == 201
+    assert len(members.json()) == 2
+
+    event = client.post(
+        "/v1/enterprise/events",
+        json={
+            "group_id": group_id,
+            "title": "Virtual museum day",
+            "starts_at": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
+        },
+        headers=admin_headers,
+    )
+    assert event.status_code == 201
+
+    reports = client.get("/v1/enterprise/reports", headers=admin_headers)
+    assert reports.status_code == 200
+    entry = next(r for r in reports.json() if r["group_id"] == group_id)
+    assert entry["name"] == "Tokyo High School"
+    assert entry["members"] == 2
+    assert entry["events"] == 1
+
+
+def test_enterprise_requires_scope(client):
+    r = client.post("/v1/enterprise/groups", json={"name": "x"}, headers=_auth())
+    assert r.status_code == 403
+
+
+def test_enterprise_members_404_missing_group(client):
+    r = client.post(
+        "/v1/enterprise/groups/nope/members",
+        json={"user_ids": [str(new_ulid())]},
+        headers=_auth(scopes=("admin",)),
+    )
+    assert r.status_code == 404

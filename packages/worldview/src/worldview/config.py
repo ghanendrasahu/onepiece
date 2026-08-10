@@ -92,6 +92,11 @@ class Settings(BaseSettings):
         default=None, validation_alias="MODERATION_SERVICE_URL"
     )
 
+    # --- payments (streaming -> payments) ---
+    # Leave unset in dev: tip forwarding degrades with a clean 503 instead of a
+    # confused partial credit.
+    payments_service_url: str | None = Field(default=None, validation_alias="PAYMENTS_SERVICE_URL")
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def _parse_cors_origins(cls, v: Any) -> Any:

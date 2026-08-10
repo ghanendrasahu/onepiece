@@ -12,6 +12,7 @@ import worldview_catalog.models  # noqa: F401
 import worldview_creators.models  # noqa: F401
 import worldview_identity.models  # noqa: F401
 import worldview_moderation.models  # noqa: F401
+import worldview_notifications.models  # noqa: F401
 import worldview_payments.models  # noqa: F401
 import worldview_streaming.models  # noqa: F401
 from alembic import context

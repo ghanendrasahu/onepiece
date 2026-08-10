@@ -48,3 +48,19 @@ class StreamReportIn(BaseModel):
 
 class StreamReportAccepted(BaseModel):
     report_id: str
+
+
+class TipIn(BaseModel):
+    cents: int = Field(gt=0, le=1_000_000)
+    message: str | None = Field(default=None, max_length=500)
+    idempotency_key: str | None = Field(default=None, max_length=200)
+
+
+class TipAccepted(BaseModel):
+    tip_id: str
+
+
+class StreamStatsOut(OrmModel):
+    id: str
+    viewers: int
+    tips_cents: int

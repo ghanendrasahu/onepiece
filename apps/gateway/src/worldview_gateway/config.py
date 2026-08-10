@@ -14,6 +14,7 @@ UPSTREAM_SERVICES = (
     "payments",
     "creators",
     "moderation",
+    "notifications",
 )
 
 
@@ -62,6 +63,9 @@ class GatewaySettings(BaseSettings):
     moderation_upstream: str = Field(
         default="http://localhost:8006", validation_alias="MODERATION_UPSTREAM"
     )
+    notifications_upstream: str = Field(
+        default="http://localhost:8008", validation_alias="NOTIFICATIONS_UPSTREAM"
+    )
     gateway_upstream: str = Field(
         default="http://localhost:8000", validation_alias="GATEWAY_UPSTREAM"
     )
@@ -83,6 +87,7 @@ class GatewaySettings(BaseSettings):
             "payments": self.payments_upstream,
             "creators": self.creators_upstream,
             "moderation": self.moderation_upstream,
+            "notifications": self.notifications_upstream,
         }
 
 

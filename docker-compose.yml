@@ -75,6 +75,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
       REDIS_URL: redis://redis:6379/0
       MODERATION_SERVICE_URL: http://moderation:8006
+      PAYMENTS_SERVICE_URL: http://payments:8005
     ports: ["8003:8003"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -158,6 +159,29 @@ services:
       timeout: 5s
       retries: 3
 
+  notifications:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: notifications
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8008
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+    ports: ["8008:8008"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8008/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   ai_guide:
     build:
       context: .
@@ -201,8 +225,9 @@ services:
       PAYMENTS_UPSTREAM: http://payments:8005
       CREATORS_UPSTREAM: http://creators:8007
       MODERATION_UPSTREAM: http://moderation:8006
+      NOTIFICATIONS_UPSTREAM: http://notifications:8008
     ports: ["8000:8000"]
-    depends_on: [identity, catalog, streaming, ai_guide, payments, creators, moderation]
+    depends_on: [identity, catalog, streaming, ai_guide, payments, creators, moderation, notifications]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)"]
       interval: 10s

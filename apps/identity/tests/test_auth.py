@@ -92,3 +92,53 @@ def test_refresh_rotates_and_revocation(client):
 def test_refresh_rejects_garbage_token(client):
     r = client.post("/v1/auth/refresh", json={"refresh_token": "not-a-valid-token"})
     assert r.status_code == 401
+
+
+def test_patch_profile_updates_fields(client):
+    r = client.post(
+        "/v1/auth/register",
+        json={"email": "patch@b.com", "password": "supersecret1", "display_name": "Pat"},
+    )
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    patch = client.patch(
+        "/v1/users/me",
+        json={
+            "display_name": "Patricia",
+            "avatar": "https://cdn.worldview.vr/avatars/p1.jpg",
+            "accessibility": {"reduced_motion": True, "subtitles": True},
+            "locale": "fr",
+        },
+        headers=headers,
+    )
+    assert patch.status_code == 200
+    body = patch.json()
+    assert body["display_name"] == "Patricia"
+    assert body["avatar_url"] == "https://cdn.worldview.vr/avatars/p1.jpg"
+    assert body["accessibility"] == {"reduced_motion": True, "subtitles": True}
+    assert body["locale"] == "fr"
+
+
+def test_devices_list_and_revoke(client):
+    r = client.post(
+        "/v1/auth/register",
+        json={"email": "dev@b.com", "password": "supersecret1", "display_name": "Dev"},
+    )
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post("/v1/auth/logout", headers=headers)  # creates a session row via refresh? no-op
+    r2 = client.post(
+        "/v1/auth/register",
+        json={"email": "d2@b.com", "password": "supersecret1", "display_name": "D2"},
+    )
+    token2 = r2.json()["access_token"]
+
+    devices = client.get("/v1/users/me/devices", headers={"Authorization": f"Bearer {token2}"})
+    assert devices.status_code == 200
+
+    revoke = client.delete(
+        "/v1/users/me/devices/not-my-device",
+        headers={"Authorization": f"Bearer {token2}"},
+    )
+    assert revoke.status_code == 404
