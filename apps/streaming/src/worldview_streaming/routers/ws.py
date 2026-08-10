@@ -1,9 +1,20 @@
-"""Realtime WebSocket endpoints: shared-room chat, presence, tour events."""
+"""Realtime WebSocket endpoints: shared-room chat, presence, tour events.
+
+Protocol (docs/06-api-specification.md §7):
+- Inbound frames ``{"type": "chat.send", body, reply_to?}`` become fanned-out
+  ``chat.msg`` frames carrying an id, moderation flags, and a timestamp.
+- ``{"type": "chat.reaction", msg_id, emoji}`` and leader-driven
+  ``{"type": "watch.sync", t, playState}`` are validated and echoed verbatim.
+- ``{"type": "room.kick", user_id}`` is only honoured for moderator scopes.
+- Unauthenticated sockets are rejected with a 4401 close after an ``error``
+  frame (safer than a bare close for mobile clients).
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -12,9 +23,13 @@ from ulid import new as new_ulid
 from worldview.auth import decode_access_token
 from worldview.config import get_settings
 
+from ..moderation import RateLimiter, moderate
 from ..realtime import RoomHub, get_room_hub
 
 router = APIRouter(prefix="/v1", tags=["realtime"])
+
+_MAX_BODY_LEN = 1000
+_MODERATOR_SCOPE = "moderator"
 
 
 def _claims_from_ws(websocket: WebSocket) -> dict[str, Any]:
@@ -105,18 +120,18 @@ async def tour_chat(websocket: WebSocket, tour_id: str) -> None:
     await hub.join(room, conn_id, meta)
     await _send_joined(websocket, hub, room, conn_id, claims)
     await _broadcast_presence(hub, room)
+    limiter = RateLimiter()
 
     async def on_frame(frame: dict[str, Any]) -> None:
-        if frame.get("type") == "chat.message":
-            event = {
-                "type": "chat.message",
-                "room": room,
-                "conn_id": conn_id,
-                "user_id": claims["sub"],
-                "display_name": meta["display_name"],
-                "body": frame.get("body", "")[:1000],
-            }
-            await hub.publish(room, event)
+        ftype = frame.get("type")
+        if ftype == "chat.send":
+            await _on_chat_send(hub, room, conn_id, meta, frame, limiter)
+        elif ftype == "chat.reaction":
+            await _on_chat_reaction(hub, room, frame)
+        elif ftype == "watch.sync":
+            await _on_watch_sync(hub, room, frame)
+        elif ftype == "room.kick":
+            await _on_room_kick(hub, room, claims, frame)
 
     try:
         await _relay_loop(websocket, hub, room, conn_id, on_frame)
@@ -125,6 +140,80 @@ async def tour_chat(websocket: WebSocket, tour_id: str) -> None:
     finally:
         await hub.leave(room, conn_id)
         await _broadcast_presence(hub, room)
+
+
+async def _on_chat_send(
+    hub: RoomHub,
+    room: str,
+    conn_id: str,
+    meta: dict[str, Any],
+    frame: dict[str, Any],
+    limiter: RateLimiter,
+) -> None:
+    body = str(frame.get("body", "") or "")[:_MAX_BODY_LEN]
+    decision, mod_flags = moderate(body, limiter, conn_id)
+    if decision in {"empty", "too_long"}:
+        return
+    if decision in {"blocked", "rate_limited"}:
+        await hub.publish(
+            room,
+            {
+                "type": "chat.rejected",
+                "conn_id": conn_id,
+                "reason": decision,
+                "mod_flags": mod_flags,
+            },
+        )
+        return
+    event = {
+        "type": "chat.msg",
+        "msg_id": str(new_ulid()),
+        "room": room,
+        "conn_id": conn_id,
+        "user_id": meta["user_id"],
+        "display_name": meta["display_name"],
+        "body": body,
+        "reply_to": frame.get("reply_to"),
+        "t": time.time(),
+        "mod_flags": mod_flags,
+    }
+    await hub.publish(room, event)
+
+
+async def _on_chat_reaction(hub: RoomHub, room: str, frame: dict[str, Any]) -> None:
+    msg_id = frame.get("msg_id")
+    emoji = frame.get("emoji")
+    if not isinstance(msg_id, str) or not isinstance(emoji, str) or len(emoji) > 16:
+        return
+    await hub.publish(
+        room, {"type": "chat.reaction", "room": room, "msg_id": msg_id, "emoji": emoji}
+    )
+
+
+async def _on_watch_sync(hub: RoomHub, room: str, frame: dict[str, Any]) -> None:
+    t = frame.get("t")
+    play_state = frame.get("playState")
+    if not (isinstance(t, (int, float)) and isinstance(play_state, str)):
+        return
+    await hub.publish(
+        room,
+        {
+            "type": "watch.sync",
+            "room": room,
+            "tour_id": frame.get("tour_id"),
+            "t": float(t),
+            "playState": play_state,
+        },
+    )
+
+
+async def _on_room_kick(
+    hub: RoomHub, room: str, claims: dict[str, Any], frame: dict[str, Any]
+) -> None:
+    scopes = claims.get("scopes") or []
+    target = frame.get("user_id")
+    if _MODERATOR_SCOPE in scopes and isinstance(target, str):
+        await hub.publish(room, {"type": "room.kick", "room": room, "user_id": target})
 
 
 @router.websocket("/streams/{stream_id}/events")

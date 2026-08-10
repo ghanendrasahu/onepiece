@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     ai_provider: str = Field(default="mock", validation_alias="AI_PROVIDER")
     model_gateway_url: str | None = Field(default=None, validation_alias="AI_MODEL_GATEWAY_URL")
 
+    # --- chat moderation (streaming) ---
+    # Optional hosted classifier endpoint for FR-9.1. When set, flagged frames
+    # are also forwarded to it; the local rules engine always runs first.
+    moderation_classifier_url: str | None = Field(
+        default=None, validation_alias="MODERATION_CLASSIFIER_URL"
+    )
+
     # --- internal peer services (ai-guide -> catalog) ---
     catalog_service_url: str = Field(
         default="http://localhost:8002", validation_alias="CATALOG_SERVICE_URL"

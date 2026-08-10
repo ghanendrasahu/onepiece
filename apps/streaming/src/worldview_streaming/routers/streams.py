@@ -141,7 +141,7 @@ def _publish_tour_event(session_row: StreamSession) -> None:
 
     hub = get_room_hub()
     event = {
-        "type": "stream.event",
+        "type": "stream.state",
         "stream_id": session_row.id,
         "tour_id": session_row.tour_id,
         "status": session_row.status,
@@ -164,5 +164,7 @@ def _current_loop():
 
 
 async def _emit(hub, room: str, stream_id: str, event: dict) -> None:
+    members = await hub.members(room)
+    event["viewers"] = len(members)
     await hub.publish_tour_event(stream_id, event)
     await hub.publish(room, event)

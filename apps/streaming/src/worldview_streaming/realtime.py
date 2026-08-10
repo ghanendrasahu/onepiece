@@ -86,7 +86,7 @@ class MemoryRoomHub:
         return _recv
 
     async def publish(self, room: str, event: dict[str, Any]) -> None:
-        if event.get("type") == "chat.message":
+        if event.get("type") == "chat.msg":
             self._history[room].append(event)
         payload = json.dumps(event, default=str, ensure_ascii=False)
         for queue in list(self._queues[room].values()):
@@ -149,7 +149,7 @@ class RedisRoomHub(MemoryRoomHub):
                     except (TypeError, ValueError):
                         continue
                     if not self._has_local(event.get("conn_id")):
-                        if event.get("type") == "chat.message":
+                        if event.get("type") == "chat.msg":
                             self._history[room].append(event)
                         payload = json.dumps(event, default=str, ensure_ascii=False)
                         for queue in list(self._queues[room].values()):

@@ -55,13 +55,52 @@ def test_room_chat_broadcast(client):
             _drain(b, "presence.sync")  # post-join presence broadcast
             assert len(presence["members"]) == 2
 
-            a.send_json({"type": "chat.message", "body": "ciao!"})
+            a.send_json({"type": "chat.send", "body": "ciao!"})
             # a also receives its own echo before b; drain a, then read from b
             while True:
                 frame = b.receive_json()
-                if frame["type"] == "chat.message":
+                if frame["type"] == "chat.msg":
                     break
             assert frame["body"] == "ciao!"
+            assert frame["mod_flags"] == []
+            assert "msg_id" in frame and "t" in frame
+
+
+def test_chat_moderation_blocks_profanity(client):
+    with client.websocket_connect(f"/v1/tours/tour-1/chat?access_token={_token()}") as a:
+        a.receive_json()
+        a.receive_json()
+        a.receive_json()
+        a.send_json({"type": "chat.send", "body": "kurwa bad word"})
+        rejected = _drain(a, "chat.rejected")
+        assert rejected is not None
+        assert rejected["reason"] == "blocked"
+
+
+def test_chat_moderation_flags_contact_for_review(client):
+    with client.websocket_connect(f"/v1/tours/tour-1/chat?access_token={_token()}") as a:
+        a.receive_json()
+        a.receive_json()
+        a.receive_json()
+        a.send_json({"type": "chat.send", "body": "join my telegram.me/xyz group"})
+        frame = _drain(a, "chat.msg")
+        assert frame is not None
+        assert "review" in frame["mod_flags"]
+
+
+def test_chat_reaction_and_watch_sync_echo(client):
+    with client.websocket_connect(f"/v1/tours/tour-1/chat?access_token={_token()}") as a:
+        a.receive_json()
+        a.receive_json()
+        a.receive_json()
+
+        a.send_json({"type": "chat.reaction", "msg_id": "m1", "emoji": "👍"})
+        reaction = _drain(a, "chat.reaction")
+        assert reaction is not None and reaction["msg_id"] == "m1"
+
+        a.send_json({"type": "watch.sync", "tour_id": "tour-1", "t": 12.5, "playState": "play"})
+        watch = _drain(a, "watch.sync")
+        assert watch is not None and watch["t"] == 12.5
 
 
 def test_chat_requires_auth(client):
@@ -76,7 +115,7 @@ def test_chat_history_persists_in_hub(client):
         a.receive_json()
         a.receive_json()
         a.receive_json()
-        a.send_json({"type": "chat.message", "body": "saved?"})
+        a.send_json({"type": "chat.send", "body": "saved?"})
 
     with client.websocket_connect(f"/v1/tours/tour-2/chat?access_token={_token()}") as b:
         b.receive_json()  # presence.sync
@@ -100,5 +139,6 @@ def test_stream_lifecycle_emits_events(client):
 
         client.post(f"/v1/streams/{stream_id}/start", headers=headers)
         event = ws.receive_json()
-        assert event["type"] == "stream.event"
+        assert event["type"] == "stream.state"
         assert event["status"] == "live"
+        assert "viewers" in event  # doc 06 §7 stream.state payload
