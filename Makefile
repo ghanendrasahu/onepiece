@@ -1,5 +1,5 @@
 .PHONY: install lint test migrate migrate-new db-up test-postgres security seed \
-	run-gateway run-identity run-catalog run-streaming run-ai-guide run-all smoke
+	run-gateway run-identity run-catalog run-streaming run-ai-guide run-payments run-all smoke
 
 install:
 	uv sync --all-packages
@@ -53,6 +53,9 @@ run-streaming:
 
 run-ai-guide:
 	uv run --directory apps/ai_guide uvicorn worldview_ai_guide.main:app --reload --port 8004
+
+run-payments:
+	uv run --directory apps/payments uvicorn worldview_payments.main:app --reload --port 8005
 
 # --- Full stack (Postgres + Redis + gateway + all services) in containers ---
 run-all:

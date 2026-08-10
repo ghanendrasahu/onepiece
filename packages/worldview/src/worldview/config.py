@@ -72,6 +72,14 @@ class Settings(BaseSettings):
         default=None, validation_alias="MODERATION_CLASSIFIER_URL"
     )
 
+    # --- payments (payments service) ---
+    # Leave unset in dev: the payments service falls back to its deterministic
+    # MockGateway so the full checkout/tip flow works offline.
+    stripe_secret_key: str | None = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str | None = Field(
+        default=None, validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
+
     # --- internal peer services (ai-guide -> catalog) ---
     catalog_service_url: str = Field(
         default="http://localhost:8002", validation_alias="CATALOG_SERVICE_URL"

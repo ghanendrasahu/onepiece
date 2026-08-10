@@ -85,6 +85,32 @@ services:
       timeout: 5s
       retries: 3
 
+  payments:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.service
+      args:
+        SERVICE: payments
+    environment:
+      ENV: dev
+      REGION_KEY: us-east-1
+      PORT: 8005
+      DATABASE_URL: postgresql+psycopg://worldview:dev-password@postgres:5432/worldview
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (see .env.example)}
+      CATALOG_SERVICE_URL: http://catalog:8002
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    ports: ["8005:8005"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8005/healthz').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   ai_guide:
     build:
       context: .
@@ -125,8 +151,9 @@ services:
       CATALOG_UPSTREAM: http://catalog:8002
       STREAMING_UPSTREAM: http://streaming:8003
       AI_GUIDE_UPSTREAM: http://ai_guide:8004
+      PAYMENTS_UPSTREAM: http://payments:8005
     ports: ["8000:8000"]
-    depends_on: [identity, catalog, streaming, ai_guide]
+    depends_on: [identity, catalog, streaming, ai_guide, payments]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else 1)"]
       interval: 10s

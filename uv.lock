@@ -15,6 +15,7 @@ members = [
     "worldview-gateway",
     "worldview-identity",
     "worldview-monorepo",
+    "worldview-payments",
     "worldview-streaming",
 ]
 
@@ -2118,6 +2119,23 @@ dev = [
     { name = "pip-audit", specifier = ">=2.7" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "ruff", specifier = ">=0.8" },
+]
+
+[[package]]
+name = "worldview-payments"
+version = "0.1.0"
+source = { editable = "apps/payments" }
+dependencies = [
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "worldview" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+    { name = "worldview", editable = "packages/worldview" },
 ]
 
 [[package]]

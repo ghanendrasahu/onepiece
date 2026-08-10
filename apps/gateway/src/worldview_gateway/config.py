@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-UPSTREAM_SERVICES = ("identity", "catalog", "streaming", "ai-guide")
+UPSTREAM_SERVICES = ("identity", "catalog", "streaming", "ai-guide", "payments")
 
 
 class GatewaySettings(BaseSettings):
@@ -45,6 +45,9 @@ class GatewaySettings(BaseSettings):
     ai_guide_upstream: str = Field(
         default="http://localhost:8004", validation_alias="AI_GUIDE_UPSTREAM"
     )
+    payments_upstream: str = Field(
+        default="http://localhost:8005", validation_alias="PAYMENTS_UPSTREAM"
+    )
     gateway_upstream: str = Field(
         default="http://localhost:8000", validation_alias="GATEWAY_UPSTREAM"
     )
@@ -63,6 +66,7 @@ class GatewaySettings(BaseSettings):
             "catalog": self.catalog_upstream,
             "streaming": self.streaming_upstream,
             "ai-guide": self.ai_guide_upstream,
+            "payments": self.payments_upstream,
         }
 
 
