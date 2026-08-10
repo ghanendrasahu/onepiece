@@ -1,4 +1,4 @@
-"""Live smoke test: boots all four services with uvicorn and exercises the full stack over HTTP."""
+"""Live smoke test: boots the core services with uvicorn and exercises the full stack over HTTP."""
 
 import importlib.util
 import os
