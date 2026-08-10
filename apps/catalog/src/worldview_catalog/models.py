@@ -34,6 +34,15 @@ class Tour(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+class TourCategory(Base):
+    __tablename__ = "tour_categories"
+
+    tour_id: Mapped[str] = mapped_column(
+        ForeignKey("tours.id", ondelete="CASCADE"), primary_key=True
+    )
+    category: Mapped[str] = mapped_column(String(30), primary_key=True)
+
+
 class Poi(Base):
     __tablename__ = "pois"
 

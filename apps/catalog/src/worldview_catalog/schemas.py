@@ -16,6 +16,7 @@ class TourOut(OrmModel):
     premium: bool
     duration_sec: int | None = None
     language: str
+    categories: list[str] = []
 
 
 class TourListOut(OrmModel):
@@ -45,6 +46,10 @@ class GeoFilter(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     radius_km: float = Field(default=25, gt=0, le=1000)
+
+
+class CategoriesOut(BaseModel):
+    categories: list[str]
 
 
 class TravelListIn(BaseModel):

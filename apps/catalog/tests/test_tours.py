@@ -74,6 +74,86 @@ def test_get_tour_404(client):
     assert client.get("/v1/tours/nonexistent").status_code == 404
 
 
+def test_get_tour_categories_default_empty(client):
+    _seed_tour(client)
+    r = client.get("/v1/tours")
+    assert r.json()["items"][0]["categories"] == []
+
+
+def test_filter_by_category(client):
+    from ulid import new as new_ulid
+    from worldview_catalog.models import Tour, TourCategory
+
+    tour = Tour(
+        **{
+            "id": str(new_ulid()),
+            "title_en": "Tokyo Night Walk",
+            "kind": "ai_guided",
+            "status": "published",
+            "latitude": 35.6586,
+            "longitude": 139.7454,
+            "region_key": "ap-southeast-1",
+            "is_free": True,
+        }
+    )
+    sess = next(_session())
+    sess.add(tour)
+    sess.add(TourCategory(tour_id=tour.id, category="city"))
+    sess.add(TourCategory(tour_id=tour.id, category="culture"))
+    sess.commit()
+
+    r = client.get("/v1/tours?category=city")
+    titles = [t["title_en"] for t in r.json()["items"]]
+    assert titles == ["Tokyo Night Walk"]
+    assert r.json()["items"][0]["categories"] == ["city", "culture"]
+
+
+def test_list_categories(client):
+    _seed_tour(client)
+    r = client.get("/v1/categories")
+    assert r.status_code == 200
+    assert isinstance(r.json()["categories"], list)
+    assert "landmark" in r.json()["categories"]
+
+
+def test_get_poi(client):
+    from ulid import new as new_ulid
+    from worldview_catalog.models import Poi, Tour
+
+    tour = Tour(
+        **{
+            "id": str(new_ulid()),
+            "title_en": "Tour Two",
+            "kind": "vod",
+            "status": "published",
+            "latitude": 48.85,
+            "longitude": 2.29,
+            "region_key": "eu-west-1",
+            "is_free": True,
+        }
+    )
+    sess = next(_session())
+    sess.add(tour)
+    poi = Poi(
+        id=str(new_ulid()),
+        tour_id=tour.id,
+        name_en="Shibuya Crossing",
+        t_begin_sec=0.0,
+        t_end_sec=120.0,
+        look_dir={"yaw": 90.0, "pitch": 0.0},
+        poi_type="street",
+    )
+    sess.add(poi)
+    sess.commit()
+    r = client.get(f"/v1/pois/{poi.id}")
+    assert r.status_code == 200
+    assert r.json()["name_en"] == "Shibuya Crossing"
+
+
+def test_get_poi_404(client):
+    assert client.get("/v1/pois/nonexistent").status_code == 404
+
+
 def test_nearby_radius(client):
     _seed_tour(client)
     _seed_tour(client, title_en="Far Away", latitude=60.0, longitude=2.0)

@@ -12,7 +12,7 @@ import os
 
 from sqlalchemy import create_engine, select
 from worldview.db import Base, get_session_factory
-from worldview_catalog.models import Hotspot, Poi, Tour
+from worldview_catalog.models import Hotspot, Poi, Tour, TourCategory
 
 _TOURS = [
     {
@@ -96,6 +96,11 @@ _POIS = [
     },
 ]
 
+_CATEGORIES_BY_TOUR = {
+    "tour-tokyo": ["city", "landmark"],
+    "tour-paris": ["city", "culture"],
+}
+
 _HOTSPOTS = [
     {"id": "hs-skydeck", "poi_id": "poi-skytree", "kind": "info", "payload": {"label": "Sky Deck"}},
     {"id": "hs-crossing-view", "poi_id": "poi-shibuya-crossing", "kind": "photo", "payload": {}},
@@ -116,6 +121,11 @@ def seed(database_url: str) -> str:
         db.add_all(tours)
         db.add_all(Poi(**row) for row in _POIS)
         db.add_all(Hotspot(**row) for row in _HOTSPOTS)
+        db.add_all(
+            TourCategory(tour_id=tour_id, category=category)
+            for tour_id, categories in _CATEGORIES_BY_TOUR.items()
+            for category in categories
+        )
         db.commit()
     return f"seeded {len(_TOURS)} tours, {len(_POIS)} POIs, {len(_HOTSPOTS)} hotspots"
 
