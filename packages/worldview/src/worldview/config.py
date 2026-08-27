@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     ai_provider: str = Field(default="mock", validation_alias="AI_PROVIDER")
     model_gateway_url: str | None = Field(default=None, validation_alias="AI_MODEL_GATEWAY_URL")
 
+    # --- Groq (free, fast LLM inference) ---
+    groq_api_key: str | None = Field(default=None, validation_alias="GROQ_API_KEY")
+    groq_model: str = Field(default="llama-3.3-70b-versatile", validation_alias="GROQ_MODEL")
+
     # --- chat moderation (streaming) ---
     # Optional hosted classifier endpoint for FR-9.1. When set, flagged frames
     # are also forwarded to it; the local rules engine always runs first.

@@ -1,10 +1,11 @@
 """LLM provider abstraction.
 
-Two implementations:
+Three implementations:
 - :class:`MockProvider` - deterministic, offline, used in dev/tests and as the
   graceful-degradation fallback when the model gateway is unavailable.
 - :class:`GatewayProvider` - calls the Model Gateway (or vendor directly) over
   HTTP for production-grade grounded answers.
+- :class:`GroqProvider` - fast, free inference using Groq's API with Llama 3.3.
 """
 
 from __future__ import annotations
@@ -107,6 +108,12 @@ def build_provider(
     provider_name: str, gateway_url: str | None, api_key: str | None = None
 ) -> Provider:
     if provider_name == "mock" or gateway_url is None:
+        # Try Groq first if available (free, fast)
+        from .groq_provider import build_groq_provider
+
+        groq_provider = build_groq_provider()
+        if groq_provider:
+            return groq_provider
         return MockProvider()
     return GatewayProvider(gateway_url, api_key)
 
