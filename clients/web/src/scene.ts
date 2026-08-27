@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import Hls from "hls.js";
 
 export interface Hotspot {
   id: string;
@@ -17,6 +18,7 @@ export interface TourDef {
   lat: number;
   lng: number;
   hotspots: Hotspot[];
+  hlsUrl?: string;
 }
 
 const W = 2048;
@@ -347,6 +349,7 @@ export const TOURS: TourDef[] = [
       { id: "fuji", yawDeg: 110, pitchDeg: -12, label: "Mt. Fuji", desc: "Visible on clear nights from central Tokyo.", ask: "When is the best time to see Mt. Fuji from Tokyo?" },
       { id: "skytree", yawDeg: 165, pitchDeg: -8, label: "Tokyo Skytree", desc: "A 634 m tower, the tallest structure in Japan.", ask: "What is the Tokyo Skytree and how tall is it?" },
     ],
+    hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
   },
   {
     id: "tour-paris",
@@ -360,6 +363,7 @@ export const TOURS: TourDef[] = [
       { id: "arc", yawDeg: -42, pitchDeg: -8, label: "Arc de Triomphe", desc: "Honors those who fought for France; sits on the Champs-Élysées.", ask: "What does the Arc de Triomphe commemorate?" },
       { id: "seine", yawDeg: 95, pitchDeg: 4, label: "River Seine", desc: "Flows through the heart of Paris past Notre-Dame.", ask: "Why is the Seine so important to Paris?" },
     ],
+    hlsUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
   },
 ];
 
@@ -385,6 +389,8 @@ export class PanoramaScene {
   private autoYaw = 0;
   private lastInput = performance.now();
   private raf = 0;
+  private hls: Hls | null = null;
+  private video: HTMLVideoElement | null = null;
 
   constructor(container: HTMLElement) {
     this.scene.add(this.sphere);
@@ -394,7 +400,21 @@ export class PanoramaScene {
     container.appendChild(this.renderer.domElement);
   }
 
+  private destroyHls() {
+    if (this.hls) {
+      this.hls.destroy();
+      this.hls = null;
+    }
+    if (this.video) {
+      this.video.pause();
+      this.video.src = "";
+      this.video.load();
+      this.video = null;
+    }
+  }
+
   setTour(tourId: string) {
+    this.destroyHls();
     const canvas = textureFor(tourId);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -402,13 +422,63 @@ export class PanoramaScene {
     this.sphere.material.needsUpdate = true;
   }
 
+  setHlsVideo(hlsUrl: string) {
+    this.destroyHls();
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    this.video = video;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 30,
+      });
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          console.error("HLS fatal error:", data.type, data.details);
+        }
+      });
+      this.hls = hls;
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = hlsUrl;
+      video.addEventListener("loadedmetadata", () => {
+        video.play().catch(() => {});
+      });
+    } else {
+      console.warn("HLS not supported in this browser");
+      return;
+    }
+
+    const tex = new THREE.VideoTexture(video);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    this.sphere.material.map = tex;
+    this.sphere.material.needsUpdate = true;
+  }
+
   setVideo(src: string) {
+    this.destroyHls();
     const video = document.createElement("video");
     video.src = src;
     video.crossOrigin = "anonymous";
     video.loop = true;
     video.muted = true;
-    video.play();
+    video.playsInline = true;
+    video.autoplay = true;
+    this.video = video;
+    video.play().catch(() => {});
     const tex = new THREE.VideoTexture(video);
     tex.colorSpace = THREE.SRGBColorSpace;
     this.sphere.material.map = tex;
@@ -449,5 +519,11 @@ export class PanoramaScene {
   setYaw(yaw: number) {
     this.yaw = yaw;
     this.lastInput = performance.now();
+  }
+
+  dispose() {
+    cancelAnimationFrame(this.raf);
+    this.destroyHls();
+    this.renderer.dispose();
   }
 }

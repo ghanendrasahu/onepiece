@@ -51,6 +51,7 @@ function showPanorama(tourId: string) {
 
 function showGlobe() {
   if (scene) {
+    scene.dispose();
     panoramaOverlay.style.display = "none";
     panoramaOverlay.innerHTML = "";
     scene = null;
@@ -265,7 +266,11 @@ async function refreshStreams() {
 // ---------- Tours ----------
 function switchTour(id: string) {
   currentTour = tourById(id);
-  scene?.setTour(id);
+  if (currentTour.hlsUrl) {
+    scene?.setHlsVideo(currentTour.hlsUrl);
+  } else {
+    scene?.setTour(id);
+  }
   tourName.textContent = currentTour.name;
   document.querySelectorAll("#tourBar .chip").forEach((c) => c.classList.toggle("active", (c as HTMLElement).dataset.tour === id));
   markers.forEach((m) => m.remove());
@@ -371,10 +376,22 @@ function frame() {
 }
 requestAnimationFrame(frame);
 
-// ---------- Video override via ?src= ----------
+// ---------- Video override via ?src= or ?hls= ----------
 const srcParam = new URLSearchParams(location.search).get("src");
-if (srcParam && scene) {
-  (scene as PanoramaScene).setVideo(srcParam);
+const hlsParam = new URLSearchParams(location.search).get("hls");
+if (hlsParam || srcParam) {
+  if (!scene) {
+    scene = new PanoramaScene(panoramaOverlay);
+    scene.start();
+    panoramaOverlay.style.display = "block";
+    globeContainer.style.display = "none";
+    currentView = "panorama";
+  }
+  if (hlsParam) {
+    scene.setHlsVideo(hlsParam);
+  } else if (srcParam) {
+    scene.setVideo(srcParam);
+  }
 }
 
 // ---------- Init ----------
