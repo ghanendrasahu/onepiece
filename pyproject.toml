@@ -1,6 +1,6 @@
 [project]
 name = "onepiece"
-version = "0.1.0"
+version = "0.1.1"
 description = "WorldView VR - immersive virtual travel platform (Python-first implementation)"
 requires-python = ">=3.11"
 dependencies = []
