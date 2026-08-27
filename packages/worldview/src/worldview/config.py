@@ -15,8 +15,6 @@ from typing import Any
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_EPHEMERAL_SECRET = "dev-only-change-me"  # nosec B105
-
 
 class Settings(BaseSettings):
     """Runtime settings for a WorldView service.
@@ -124,11 +122,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _enforce_secret_policy(self) -> "Settings":
         if self.env != "dev":
-            if (
-                not self.jwt_secret
-                or self.jwt_secret == _EPHEMERAL_SECRET
-                or len(self.jwt_secret) < 32
-            ):
+            if not self.jwt_secret or len(self.jwt_secret) < 32:
                 raise ValueError(
                     "JWT_SECRET must be set and at least 32 chars in non-dev environments"
                 )

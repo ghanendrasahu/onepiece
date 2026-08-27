@@ -97,17 +97,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Build image
-        run: docker build --build-arg SERVICE=${{ matrix.service }} -f infra/docker/Dockerfile.service -t worldview/${{ matrix.service }} .
+        run: docker build --build-arg SERVICE=${{ matrix.service }} -f infra/docker/Dockerfile.service -t onepiece/${{ matrix.service }} .
 
       - name: Scan image (Trivy)
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: worldview/${{ matrix.service }}
+          image-ref: onepiece/${{ matrix.service }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: '0'
 
       - name: Login to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -120,9 +119,9 @@ jobs:
       - name: Push image to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          image=ghcr.io/${{ github.repository_owner }}/worldview-${{ matrix.service }}
-          docker tag worldview/${{ matrix.service }} $image:${{ github.sha }}
-          docker tag worldview/${{ matrix.service }} $image:latest
+          image=ghcr.io/${{ github.repository_owner }}/onepiece-${{ matrix.service }}
+          docker tag onepiece/${{ matrix.service }} $image:${{ github.sha }}
+          docker tag onepiece/${{ matrix.service }} $image:latest
           docker push $image:${{ github.sha }}
           docker push $image:latest
   helm:
@@ -133,7 +132,7 @@ jobs:
         with:
           version: v4.2.3
       - name: Lint chart
-        run: helm lint infra/helm-charts/worldview --set jwtSecret=ci-only-secret-0123456789abcdef
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }}
       - name: Render manifests
         run: |
           helm template worldview infra/helm-charts/worldview \

@@ -36,7 +36,8 @@ migrate-check:
 
 # Run the whole suite + migrations against real PostgreSQL (needs `make db-up`).
 test-postgres:
-	set "WORLDVIEW_TEST_DATABASE_URL=postgresql+psycopg://worldview:dev-password@localhost:5432/worldview" && uv run alembic upgrade head && uv run pytest
+	@echo "Ensure PostgreSQL is running (make db-up first)"
+	uv run WORLDVIEW_TEST_DATABASE_URL=postgresql+psycopg://worldview:dev-password@localhost:5432/worldview alembic upgrade head && uv run pytest
 
 # --- Local dev (SQLite, zero-setup) ---
 run-gateway:

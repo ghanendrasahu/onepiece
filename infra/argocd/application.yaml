@@ -11,7 +11,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/ghanendrasahu/worldview-monorepo
+    repoURL: https://github.com/ghanendrasahu/onepiece
     targetRevision: main
     path: infra/helm-charts/worldview
     helm:

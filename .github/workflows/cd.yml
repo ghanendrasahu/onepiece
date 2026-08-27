@@ -37,14 +37,14 @@ jobs:
           version: v4.2.3
 
       - name: Validate chart for release
-        run: helm lint infra/helm-charts/worldview --set jwtSecret=ci-only-secret-0123456789abcdef
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }}
 
       - name: Render production manifests
         run: |
           helm template worldview infra/helm-charts/worldview \
             --namespace prod \
             -f infra/helm-charts/worldview/values/region-${{ env.PROD_REGION }}.yaml \
-            --set jwtSecret=ci-only-secret-0123456789abcdef > /tmp/rendered.yaml
+            --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }} > /tmp/rendered.yaml
           grep -q "kind: Rollout" /tmp/rendered.yaml
           grep -q "kind: Job" /tmp/rendered.yaml
           grep -q "name: worldview-ai-guide" /tmp/rendered.yaml
@@ -61,4 +61,4 @@ jobs:
           # Download the Argo CD CLI (pinned via checksum-free latest; align with cluster version in prod).
           curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
           chmod +x argocd
-          ./argocd app sync "worldview-${{ env.PROD_REGION }}" --timeout 600
+          ./argocd app sync "onepiece-${{ env.PROD_REGION }}" --timeout 600

@@ -79,12 +79,8 @@ class GroqProvider:
         context_parts = []
         for i, entry in enumerate(context, 1):
             tags_str = ", ".join(entry.tags) if entry.tags else "general"
-            context_parts.append(
-                f"[{i}] {entry.name_en} ({tags_str})\n{entry.text}"
-            )
-        context_str = (
-            "\n\n".join(context_parts) if context_parts else "No context available."
-        )
+            context_parts.append(f"[{i}] {entry.name_en} ({tags_str})\n{entry.text}")
+        context_str = "\n\n".join(context_parts) if context_parts else "No context available."
 
         user_message = f"""Tour context:
 {context_str}

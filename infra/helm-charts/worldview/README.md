@@ -62,7 +62,7 @@ metadata:
   name: worldview
 spec:
   source:
-    repoURL: https://github.com/ghanendrasahu/worldview-monorepo
+    repoURL: https://github.com/ghanendrasahu/onepiece
     path: infra/helm-charts/worldview
     targetRevision: main
     helm:

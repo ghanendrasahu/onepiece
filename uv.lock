@@ -16,7 +16,7 @@ members = [
     "worldview-gateway",
     "worldview-identity",
     "worldview-moderation",
-    "worldview-monorepo",
+    "onepiece",
     "worldview-notifications",
     "worldview-payments",
     "worldview-streaming",
@@ -2134,7 +2134,7 @@ requires-dist = [
 ]
 
 [[package]]
-name = "worldview-monorepo"
+name = "onepiece"
 version = "0.1.0"
 source = { virtual = "." }
 
