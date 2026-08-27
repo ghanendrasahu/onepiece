@@ -1,8 +1,9 @@
-"""Auth routes: register, login, refresh, session management, logout."""
+"""Auth routes: register, login, refresh, session management, logout, OAuth2."""
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ulid import new as new_ulid
@@ -26,6 +27,7 @@ from ..schemas import (
     MfaVerifyOut,
     RefreshIn,
     RegisterIn,
+    SocialCallbackIn,
     TokenOut,
 )
 
@@ -129,6 +131,85 @@ def _social_login(payload: LoginIn, db: Session) -> TokenOut:
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail="email required to resolve social login",
     )
+
+
+# --- OAuth2 Social Login (Google, GitHub) ---
+
+
+@router.get("/oauth/{provider}/authorize")
+async def oauth_authorize(
+    provider: str,
+    request: Request,
+    redirect_uri: str = Query(..., description="Callback URL after auth"),
+) -> RedirectResponse:
+    """Initiate OAuth2 flow by redirecting to provider's authorization page.
+
+    The redirect_uri should point to your frontend callback handler which
+    will call POST /oauth/{provider}/callback with the code.
+    """
+    from ..social import build_social_provider
+
+    social = build_social_provider(provider)
+
+    # Generate state token for CSRF protection
+    state = str(new_ulid())
+
+    # Store state in session/cookie for verification (simplified for dev)
+    auth_url = social.get_authorization_url(redirect_uri, state)
+
+    response = RedirectResponse(url=auth_url)
+    response.set_cookie(
+        key=f"oauth_state_{provider}",
+        value=state,
+        max_age=600,  # 10 minutes
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@router.post("/oauth/{provider}/callback", response_model=TokenOut)
+async def oauth_callback(
+    provider: str,
+    payload: SocialCallbackIn,
+    db: Session = Depends(get_db),
+) -> TokenOut:
+    """Exchange OAuth code for tokens and create/find user.
+
+    Call this from your frontend after receiving the authorization code
+    from the OAuth redirect.
+    """
+    from ..social import build_social_provider
+
+    social = build_social_provider(provider)
+
+    # Exchange code for user info
+    try:
+        user_info = await social.exchange_code(payload.code, payload.redirect_uri)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Failed to exchange OAuth code: {str(e)}",
+        ) from e
+
+    # Find or create user
+    user = db.execute(
+        select(User).where(User.email == user_info.email.lower())
+    ).scalar_one_or_none()
+
+    if user is None:
+        # Create new user from social info
+        user = User(
+            id=str(new_ulid()),
+            email=user_info.email.lower(),
+            password_hash=hash_password(f"social:{provider}:{new_ulid()}"),
+            display_name=user_info.name,
+            locale="en",
+        )
+        db.add(user)
+        db.flush()
+
+    return _build_token(user, db)
 
 
 @router.post("/refresh", response_model=TokenOut)

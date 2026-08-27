@@ -64,6 +64,12 @@ class Settings(BaseSettings):
         default="dev-social-code", validation_alias="SOCIAL_LOGIN_CLIENT_SECRET"
     )
 
+    # --- OAuth2 providers (Google, GitHub) ---
+    google_client_id: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = Field(default=None, validation_alias="GOOGLE_CLIENT_SECRET")
+    github_client_id: str | None = Field(default=None, validation_alias="GITHUB_CLIENT_ID")
+    github_client_secret: str | None = Field(default=None, validation_alias="GITHUB_CLIENT_SECRET")
+
     # --- observability ---
     sentry_dsn: str | None = Field(default=None, validation_alias="SENTRY_DSN")
     metrics_enabled: bool = Field(default=True, validation_alias="METRICS_ENABLED")

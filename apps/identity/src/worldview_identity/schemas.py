@@ -16,8 +16,16 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr | None = None
     password: str | None = None
-    provider: str | None = Field(default=None, pattern="^(google|apple)$")
+    provider: str | None = Field(default=None, pattern="^(google|apple|github)$")
     code: str | None = Field(default=None, min_length=1, max_length=512)
+
+
+class SocialCallbackIn(BaseModel):
+    """OAuth2 callback payload from frontend."""
+
+    code: str = Field(min_length=1, max_length=512)
+    redirect_uri: str = Field(min_length=1, max_length=500)
+    state: str | None = Field(default=None, max_length=500)
 
 
 class TokenOut(BaseModel):
