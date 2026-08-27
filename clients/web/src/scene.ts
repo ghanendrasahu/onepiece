@@ -14,6 +14,8 @@ export interface TourDef {
   name: string;
   mode: "live" | "vod";
   regionKey: string;
+  lat: number;
+  lng: number;
   hotspots: Hotspot[];
 }
 
@@ -337,6 +339,8 @@ export const TOURS: TourDef[] = [
     name: "Tokyo — Shibuya Crossing",
     mode: "live",
     regionKey: "ap-northeast-1",
+    lat: 35.6586,
+    lng: 139.7454,
     hotspots: [
       { id: "tokyo-tower", yawDeg: 20, pitchDeg: -4, label: "Tokyo Tower", desc: "A 333 m broadcasting tower, symbol of post-war Japan.", ask: "Tell me about Tokyo Tower and what it looks like right now." },
       { id: "shibuya", yawDeg: -60, pitchDeg: -6, label: "Shibuya Crossing", desc: "The world-famous scramble crossing, busy even at night.", ask: "How many people cross Shibuya Crossing every day?" },
@@ -349,6 +353,8 @@ export const TOURS: TourDef[] = [
     name: "Paris — Eiffel Panorama",
     mode: "vod",
     regionKey: "eu-west-3",
+    lat: 48.8566,
+    lng: 2.3522,
     hotspots: [
       { id: "eiffel", yawDeg: 0, pitchDeg: -6, label: "Eiffel Tower", desc: "Iron lattice tower on the Champ de Mars, built for the 1889 Exposition.", ask: "Tell me the story of the Eiffel Tower." },
       { id: "arc", yawDeg: -42, pitchDeg: -8, label: "Arc de Triomphe", desc: "Honors those who fought for France; sits on the Champs-Élysées.", ask: "What does the Arc de Triomphe commemorate?" },

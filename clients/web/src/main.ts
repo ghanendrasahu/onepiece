@@ -1,11 +1,22 @@
 import "./styles.css";
 import { PanoramaScene, TOURS, tourById, type Hotspot } from "./scene";
 import { api, type Source } from "./api";
+import { createGlobe, onGlobeSelect, focusTour, destroyGlobe, resizeGlobe } from "./globe";
 
 const D2R = Math.PI / 180;
 
 const app = document.getElementById("app")!;
-const scene = new PanoramaScene(app);
+
+const globeContainer = document.createElement("div");
+globeContainer.id = "globeContainer";
+document.body.appendChild(globeContainer);
+
+const panoramaOverlay = document.createElement("div");
+panoramaOverlay.id = "panoramaOverlay";
+document.body.appendChild(panoramaOverlay);
+
+let scene: PanoramaScene | null = null;
+let currentView: "globe" | "panorama" = "globe";
 
 const hud = document.createElement("div");
 hud.id = "hud";
@@ -16,6 +27,40 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = "", text = ""):
   if (cls) n.className = cls;
   if (text) n.textContent = text;
   return n;
+}
+
+// ---------- View switching ----------
+const backBtn = el("button", "ghost", "← Globe");
+backBtn.id = "backBtn";
+backBtn.style.display = "none";
+
+function showPanorama(tourId: string) {
+  if (!scene) {
+    scene = new PanoramaScene(panoramaOverlay);
+    scene.start();
+  }
+  panoramaOverlay.style.display = "block";
+  globeContainer.style.display = "none";
+  app.style.display = "none";
+  hud.style.display = "block";
+  switchTour(tourId);
+  currentView = "panorama";
+  backBtn.style.display = "inline-flex";
+  scene.resize();
+}
+
+function showGlobe() {
+  if (scene) {
+    panoramaOverlay.style.display = "none";
+    panoramaOverlay.innerHTML = "";
+    scene = null;
+  }
+  app.style.display = "none";
+  globeContainer.style.display = "block";
+  hud.style.display = "block";
+  backBtn.style.display = "none";
+  currentView = "globe";
+  resizeGlobe();
 }
 
 // ---------- Topbar ----------
@@ -30,7 +75,7 @@ const sourcePill = el("span", "pill offline", "● offline · demo data");
 sourcePill.id = "sourcePill";
 const connectBtn = el("button", "ghost", "Connect");
 connectBtn.id = "connectBtn";
-topbar.append(brand, tourName, spacer, sourcePill, connectBtn);
+  topbar.append(backBtn, brand, tourName, spacer, sourcePill, connectBtn);
 hud.appendChild(topbar);
 
 // ---------- Tour bar ----------
@@ -80,6 +125,7 @@ chatInput.id = "chatInput";
 chatInput.placeholder = "Ask about what you see…";
 const langSel = el("select", "", "");
 langSel.id = "langSel";
+langSel.setAttribute("aria-label", "Select Language");
 const sendBtn = el("button", "", "Ask");
 sendBtn.id = "sendBtn";
 chatInputRow.append(chatInput, langSel, sendBtn);
@@ -183,7 +229,7 @@ function addMsg(role: "user" | "ai", text: string, src?: Source) {
 }
 
 async function askGuide(text: string) {
-  const t = Math.round((scene.look.yaw + 360) % 360) * 2;
+  const t = scene ? Math.round((scene.look.yaw + 360) % 360) * 2 : 0;
   addMsg("user", text);
   const think = el("div", "msg ai", "…");
   chatMsgs.appendChild(think);
@@ -219,7 +265,7 @@ async function refreshStreams() {
 // ---------- Tours ----------
 function switchTour(id: string) {
   currentTour = tourById(id);
-  scene.setTour(id);
+  scene?.setTour(id);
   tourName.textContent = currentTour.name;
   document.querySelectorAll("#tourBar .chip").forEach((c) => c.classList.toggle("active", (c as HTMLElement).dataset.tour === id));
   markers.forEach((m) => m.remove());
@@ -275,46 +321,50 @@ signToggle.addEventListener("click", () => {
 });
 connectBtn.addEventListener("click", () => void connect());
 refreshBtn.addEventListener("click", () => void refreshStreams());
+backBtn.addEventListener("click", () => showGlobe());
 document.querySelectorAll("#tourBar .chip").forEach((c) =>
-  c.addEventListener("click", () => switchTour((c as HTMLElement).dataset.tour!)),
+  c.addEventListener("click", () => showPanorama((c as HTMLElement).dataset.tour!)),
 );
 
 // ---------- Pointer look ----------
 let dragging = false;
 let lastX = 0;
 let lastY = 0;
-scene.start();
-app.addEventListener("pointerdown", (e) => {
+panoramaOverlay.addEventListener("pointerdown", (e) => {
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
 });
 addEventListener("pointerup", () => (dragging = false));
 addEventListener("pointermove", (e) => {
-  if (!dragging) return;
+  if (!dragging || !scene) return;
   scene.rotate(e.clientX - lastX, e.clientY - lastY);
   lastX = e.clientX;
   lastY = e.clientY;
 });
-app.addEventListener("touchstart", (e) => {
+panoramaOverlay.addEventListener("touchstart", (e) => {
   dragging = true;
   lastX = e.touches[0].clientX;
   lastY = e.touches[0].clientY;
 });
-app.addEventListener("touchmove", (e) => {
-  if (!dragging) return;
+panoramaOverlay.addEventListener("touchmove", (e) => {
+  if (!dragging || !scene) return;
   const t = e.touches[0];
   scene.rotate(t.clientX - lastX, t.clientY - lastY);
   lastX = t.clientX;
   lastY = t.clientY;
 });
-app.addEventListener("touchend", () => (dragging = false));
+panoramaOverlay.addEventListener("touchend", () => (dragging = false));
 
-addEventListener("resize", () => scene.resize());
+addEventListener("resize", () => {
+  if (scene) scene.resize();
+  resizeGlobe();
+});
 
 // ---------- Frame loop: hotspots + stats ----------
 function frame() {
   requestAnimationFrame(frame);
+  if (!scene || currentView !== "panorama") return;
   const { yaw, pitch } = scene.look;
   renderHotspots(yaw, pitch);
   stats.textContent = `yaw ${yaw.toFixed(0)}° · pitch ${pitch.toFixed(0)}°`;
@@ -323,13 +373,27 @@ requestAnimationFrame(frame);
 
 // ---------- Video override via ?src= ----------
 const srcParam = new URLSearchParams(location.search).get("src");
-if (srcParam) scene.setVideo(srcParam);
+if (srcParam && scene) {
+  (scene as PanoramaScene).setVideo(srcParam);
+}
 
 // ---------- Init ----------
-const initTour = new URLSearchParams(location.search).get("tour") ?? "tour-tokyo";
-switchTour(initTour);
 void loadLanguages();
 void connect();
+
+onGlobeSelect((tourId) => showPanorama(tourId));
+
+const initTour = new URLSearchParams(location.search).get("tour");
+if (initTour) {
+  showPanorama(initTour);
+} else {
+  app.style.display = "none";
+  globeContainer.style.display = "block";
+  currentView = "globe";
+  createGlobe(globeContainer);
+  resizeGlobe();
+}
+
 setTimeout(() => {
   hint.style.opacity = "0";
   setTimeout(() => (hint.style.display = "none"), 1100);
@@ -346,8 +410,8 @@ declare global {
   }
 }
 window.worldViewPlayer = {
-  setYaw: (y) => scene.setYaw(y),
-  setTour: (id) => switchTour(id),
+  setYaw: (y) => scene?.setYaw(y),
+  setTour: (id) => showPanorama(id),
   ask: (q) => void askGuide(q),
 };
 
