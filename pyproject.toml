@@ -13,11 +13,11 @@ worldview = { workspace = true }
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.8",
-    "mypy>=1.13",
-    "bandit>=1.8",
-    "pip-audit>=2.7",
+    "pytest>=9.1.1",
+    "ruff>=0.16.4",
+    "mypy>=2.3.1",
+    "bandit>=1.9.4",
+    "pip-audit>=2.10.1",
 ]
 
 [tool.uv]
