@@ -1,8 +1,9 @@
 """Rate limiting for the gateway.
 
-Fixed-window limiter, keyed by client IP and upstream service. Uses an
-in-memory store by default; switches to Redis when ``REDIS_URL`` is set so the
-limit holds across multiple gateway replicas.
+Fixed-window limiter, keyed by client IP and upstream service. Non-dev
+environments are required (``GatewaySettings`` validator) to configure
+``REDIS_URL`` so the limit holds across gateway replicas; dev falls back to an
+in-process store.
 """
 
 import asyncio

@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 UPSTREAM_SERVICES = (
@@ -76,6 +76,21 @@ class GatewaySettings(BaseSettings):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
+
+    @model_validator(mode="after")
+    def _enforce_prod_policy(self) -> "GatewaySettings":
+        """Fail fast on unsafe prod config: rate limits must be shareable.
+
+        Per-process limiters are meaningless once the gateway scales past one
+        replica, so non-dev environments must point at Redis. Dev without
+        Redis keeps the in-process limiter.
+        """
+        if self.env != "dev" and not self.redis_url:
+            raise ValueError(
+                "REDIS_URL must be set in non-dev environments: per-process "
+                "rate limits do not hold across gateway replicas"
+            )
+        return self
 
     @property
     def upstreams(self) -> dict[str, str]:

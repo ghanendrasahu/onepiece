@@ -113,6 +113,28 @@ def test_auth_rate_limit_stricter(settings):
         assert c.get("/api/catalog/v1/echo").status_code == 200
 
 
+# --- Production config policy -------------------------------------------------
+
+
+def test_prod_without_redis_url_is_rejected():
+    """Non-dev environments must configure Redis (shared limiter across replicas)."""
+    import pydantic
+
+    with pytest.raises(pydantic.ValidationError) as exc_info:
+        GatewaySettings(env="prod", redis_url=None)
+    assert "REDIS_URL" in str(exc_info.value)
+
+
+def test_prod_with_redis_url_is_accepted():
+    settings = GatewaySettings(env="prod", redis_url="redis://worldview-redis:6379/0")
+    assert settings.redis_url == "redis://worldview-redis:6379/0"
+
+
+def test_dev_without_redis_url_is_allowed():
+    settings = GatewaySettings(env="dev", redis_url=None)
+    assert settings.redis_url is None
+
+
 def test_security_headers_present(client):
     r = client.get("/healthz")
     assert r.headers["X-Content-Type-Options"] == "nosniff"
