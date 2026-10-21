@@ -1,27 +1,60 @@
 # WorldView VR service runtime image (shared across all Python services).
-# Build with: docker build -t worldview:<service> --build-arg SERVICE=<service> .
-# The repo root must be the build context (monorepo workspace).
+# Build from the repo root (monorepo workspace):
+#   docker build -t worldview:<service> --build-arg SERVICE=<service> -f infra/docker/Dockerfile.service .
+#
+# Two stages:
+#   builder  resolves the uv workspace into a self-contained venv (locked, no dev deps)
+#   runtime  Python + venv + application code, non-root, HEALTHCHECK
+#
+# Workspace members are installed editable and reference absolute /app paths,
+# so the runtime stage re-copies sources to the identical /app layout.
 
-FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS builder
 
-ARG SERVICE
-ENV SERVICE=${SERVICE} \
-    UV_COMPILE_BYTECODE=1 \
+ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PYTHONUNBUFFERED=1
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
 WORKDIR /app
 
-# Copy the full workspace (uv resolves the local `worldview` lib dependency).
+# Copy the workspace first so uv can resolve local `worldview` lib dependencies.
 COPY pyproject.toml uv.lock ./
-COPY alembic.ini ./
-COPY migrations ./migrations
-COPY apps ./apps
 COPY packages ./packages
+COPY apps ./apps
 
 RUN uv sync --locked --all-packages --no-dev
 
+FROM python:3.11-slim-bookworm AS runtime
+
+ARG SERVICE
+ENV SERVICE=${SERVICE} \
+    PORT=8000 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:${PATH}" \
+    VIRTUAL_ENV=/opt/venv
+
+# Bail out at build time rather than shipping an image that cannot start.
+RUN test -n "$SERVICE" || (echo 'ERROR: SERVICE build-arg is required (see the ci.yml matrix)' && exit 1)
+
+WORKDIR /app
+
+# Runtime needs the application code plus Alembic assets (the Helm migration
+# job runs `alembic upgrade head` from the gateway image).
+COPY packages ./packages
+COPY apps ./apps
+COPY alembic.ini ./
+COPY migrations ./migrations
+
+# Run as a non-root user owning code and venv.
+RUN addgroup --system appuser && adduser --system --group appuser \
+    && chown -R appuser:appuser /app /opt/venv
+USER appuser
+
+# Every service mounts the shared worldview/health router on /healthz and
+# reads $PORT (default 8000).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD python -c "import urllib.request, os, sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '8000') + '/healthz', timeout=3.0).status == 200 else 1)"
+
 EXPOSE 8000
 
-# Listen on PORT (default 8000) so compose can address per-service ports.
-CMD ["sh", "-c", "uv run --directory apps/${SERVICE} uvicorn worldview_${SERVICE}.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# uv is not shipped in the runtime image; the locked venv is invoked directly.
+CMD ["sh", "-c", "uvicorn worldview_${SERVICE}.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

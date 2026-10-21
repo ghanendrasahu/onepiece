@@ -18,7 +18,7 @@ spec:
       containers:
         - name: migrate
           image: {{ include "worldview.image" (dict "root" $ "service" "gateway") }}
-          command: ["sh", "-c", "uv run alembic upgrade head"]
+          command: ["sh", "-c", "alembic upgrade head"]
           envFrom:
             - configMapRef:
                 name: {{ include "worldview.fullname" . }}-common
