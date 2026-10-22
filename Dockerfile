@@ -30,6 +30,9 @@ RUN test -n "$SERVICE" || (echo 'ERROR: SERVICE must not be empty' && exit 1)
 
 WORKDIR /app
 
+# The locked virtual environment is produced in the builder stage and is the
+# only copy of the dependencies in the runtime image.
+COPY --from=builder /opt/venv /opt/venv
 COPY packages ./packages
 COPY apps ./apps
 COPY alembic.ini ./

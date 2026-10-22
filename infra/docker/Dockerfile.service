@@ -38,6 +38,10 @@ RUN test -n "$SERVICE" || (echo 'ERROR: SERVICE build-arg is required (see the c
 
 WORKDIR /app
 
+# The locked virtual environment is produced in the builder stage and is the
+# only copy of the dependencies in the runtime image.
+COPY --from=builder /opt/venv /opt/venv
+
 # Runtime needs the application code plus Alembic assets (the Helm migration
 # job runs `alembic upgrade head` from the gateway image).
 COPY packages ./packages
