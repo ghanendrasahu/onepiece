@@ -49,7 +49,9 @@ jobs:
         run: uv run bandit -q -r apps packages -x '*/tests/*,*/migrations/*'
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit
+        # The workspace packages are local and have no PyPI release, so they
+        # are skipped - only the third-party dependencies are audited.
+        run: uv run pip-audit --skip-editable
 
       - name: Migrate (Postgres)
         run: uv run alembic upgrade head
