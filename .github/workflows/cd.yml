@@ -37,14 +37,14 @@ jobs:
           version: v4.2.3
 
       - name: Validate chart for release
-        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }}
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || format('ci-only-secret-{0}', github.sha) }}
 
       - name: Render production manifests
         run: |
           helm template worldview infra/helm-charts/worldview \
             --namespace prod \
             -f infra/helm-charts/worldview/values/region-${{ env.PROD_REGION }}.yaml \
-            --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }} > /tmp/rendered.yaml
+            --set jwtSecret=${{ secrets.GITHUB_TOKEN || format('ci-only-secret-{0}', github.sha) }} > /tmp/rendered.yaml
           grep -q "kind: Rollout" /tmp/rendered.yaml
           grep -q "kind: Job" /tmp/rendered.yaml
           grep -q "name: worldview-ai-guide" /tmp/rendered.yaml

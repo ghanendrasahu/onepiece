@@ -132,7 +132,7 @@ jobs:
         with:
           version: v4.2.3
       - name: Lint chart
-        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || 'ci-only-secret-' + github.sha[:8] }}
+        run: helm lint infra/helm-charts/worldview --set jwtSecret=${{ secrets.GITHUB_TOKEN || format('ci-only-secret-{0}', github.sha) }}
       - name: Render manifests
         run: |
           helm template worldview infra/helm-charts/worldview \
