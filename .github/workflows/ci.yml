@@ -141,3 +141,21 @@ jobs:
             > /tmp/rendered.yaml
           grep -q "kind: Job" /tmp/rendered.yaml
           grep -q "name: worldview-ai-guide" /tmp/rendered.yaml
+  docker-single:
+    name: Single-service image
+    runs-on: ubuntu-latest
+    needs: python
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Build the single-service image
+        run: docker build -t onepiece/single:ci .
+
+      - name: Verify it runs as a non-root user
+        run: |
+          uid=$(docker run --rm --entrypoint id onepiece/single:ci -u)
+          if [ "$uid" = "0" ]; then
+            echo "ERROR: the image runs as root"; exit 1
+          fi
+          echo "image runs as uid $uid"
